@@ -44,13 +44,49 @@
                     <a href="{{ route('clubs.index') }}" class="hover:text-[#d6a31d]">Clubs</a>
                     <a href="{{ route('tournaments.index') }}" class="hover:text-[#d6a31d]">Tournaments</a>
                 </nav>
-                <div class="flex items-center gap-4 text-sm font-bold uppercase">
+                <div class="hidden items-center gap-4 text-sm font-bold uppercase md:flex">
                     @auth
                         <a href="{{ route('dashboard') }}" class="hover:text-[#d6a31d]">Dashboard</a>
                     @else
                         <a href="{{ route('login') }}" class="hover:text-[#d6a31d]">Login</a>
                         <a href="{{ route('register') }}" class="rounded-full bg-[#071a80] px-4 py-2 text-white hover:bg-[#0b2bc1]">Register</a>
                     @endauth
+                </div>
+                <label for="public-mobile-menu" class="md:hidden">
+                    <span class="sr-only">Open menu</span>
+                    <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M4 7h16M4 12h16M4 17h16" stroke-width="2.5" stroke-linecap="round" />
+                    </svg>
+                </label>
+            </div>
+            <input id="public-mobile-menu" type="checkbox" class="peer sr-only">
+            <div class="fixed inset-0 z-50 hidden bg-white text-[#1d3448] peer-checked:block md:hidden">
+                <div class="flex h-20 items-center justify-between border-b border-blue-950/10 px-6">
+                    <a href="/">
+                        <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="136" height="34" class="h-[34px] w-[136px] object-contain" style="width: 136px; height: 34px;">
+                    </a>
+                    <label for="public-mobile-menu" class="text-blue-950/45">
+                        <span class="sr-only">Close menu</span>
+                        <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M6 6l12 12M18 6 6 18" stroke-width="1.8" stroke-linecap="round" />
+                        </svg>
+                    </label>
+                </div>
+                <div class="px-6 py-10">
+                    <div class="divide-y divide-dashed divide-blue-950/15 border-y border-dashed border-blue-950/15">
+                        <a href="{{ route('rankings') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Rankings</a>
+                        <a href="{{ route('matches.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Matches</a>
+                        <a href="{{ route('clubs.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Clubs</a>
+                        <a href="{{ route('tournaments.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Tournaments</a>
+                    </div>
+                    <div class="mt-8 grid grid-cols-2 gap-3">
+                        @auth
+                            <a href="{{ route('dashboard') }}" class="rounded-full bg-[#071a80] px-5 py-3 text-center text-sm font-black uppercase tracking-[.12em] text-white">Dashboard</a>
+                        @else
+                            <a href="{{ route('login') }}" class="rounded-full border border-blue-950/15 px-5 py-3 text-center text-sm font-black uppercase tracking-[.12em] text-[#071a80]">Login</a>
+                            <a href="{{ route('register') }}" class="rounded-full bg-[#071a80] px-5 py-3 text-center text-sm font-black uppercase tracking-[.12em] text-white">Register</a>
+                        @endauth
+                    </div>
                 </div>
             </div>
         </header>

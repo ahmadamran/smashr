@@ -86,10 +86,9 @@ new class extends Component
 
             <!-- Hamburger -->
             <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
+                <button @click="open = true" class="inline-flex items-center justify-center p-2 text-[#071a80] focus:outline-none">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                        <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 7h16M4 12h16M4 17h16" />
                     </svg>
                 </button>
             </div>
@@ -97,66 +96,58 @@ new class extends Component
     </div>
 
     <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
-        <div class="pt-2 pb-3 space-y-1">
-            @auth
-                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" wire:navigate>
-                    {{ __('Dashboard') }}
-                </x-responsive-nav-link>
-            @endauth
-            <x-responsive-nav-link :href="route('rankings')" :active="request()->routeIs('rankings')" wire:navigate>
-                {{ __('Rankings') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('matches.index')" :active="request()->routeIs('matches.index')" wire:navigate>
-                {{ __('Matches') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('clubs.index')" :active="request()->routeIs('clubs.*')" wire:navigate>
-                {{ __('Clubs') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('tournaments.index')" :active="request()->routeIs('tournaments.*')" wire:navigate>
-                {{ __('Tournaments') }}
-            </x-responsive-nav-link>
-            @auth
-                <x-responsive-nav-link :href="route('matches.create')" :active="request()->routeIs('matches.create')" wire:navigate>
-                    {{ __('Submit Match') }}
-                </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('organizer.tournaments.index')" :active="request()->routeIs('organizer.*')" wire:navigate>
-                    {{ __('Organizer') }}
-                </x-responsive-nav-link>
-                @if (auth()->user()->hasRole('superadmin'))
-                    <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')" wire:navigate>
-                        {{ __('Admin') }}
-                    </x-responsive-nav-link>
-                @endif
-            @endauth
+    <div x-show="open" x-transition.opacity class="fixed inset-0 z-50 bg-white sm:hidden" style="display: none;">
+        <div class="flex h-20 items-center justify-between border-b border-blue-950/10 px-6">
+            <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate @click="open = false">
+                <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="136" height="34" class="h-[34px] w-[136px] object-contain" style="width: 136px; height: 34px;">
+            </a>
+            <button @click="open = false" class="text-blue-950/45">
+                <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M6 6l12 12M18 6 6 18" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+            </button>
         </div>
 
-        <!-- Responsive Settings Options -->
-        @auth
-        <div class="pt-4 pb-1 border-t border-gray-200">
-            <div class="px-4">
-                <div class="font-medium text-base text-gray-800" x-data="{{ json_encode(['name' => auth()->user()->name]) }}" x-text="name" x-on:profile-updated.window="name = $event.detail.name"></div>
-                <div class="font-medium text-sm text-gray-500">{{ auth()->user()->email }}</div>
+        <div class="px-6 py-10">
+            @php
+                $mobileLinks = [
+                    ['label' => 'Rankings', 'url' => route('rankings'), 'active' => request()->routeIs('rankings')],
+                    ['label' => 'Matches', 'url' => route('matches.index'), 'active' => request()->routeIs('matches.index')],
+                    ['label' => 'Clubs', 'url' => route('clubs.index'), 'active' => request()->routeIs('clubs.*')],
+                    ['label' => 'Tournaments', 'url' => route('tournaments.index'), 'active' => request()->routeIs('tournaments.*')],
+                ];
+                if (auth()->check()) {
+                    array_unshift($mobileLinks, ['label' => 'Dashboard', 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')]);
+                    $mobileLinks[] = ['label' => 'Submit Match', 'url' => route('matches.create'), 'active' => request()->routeIs('matches.create')];
+                    $mobileLinks[] = ['label' => 'Organizer', 'url' => route('organizer.tournaments.index'), 'active' => request()->routeIs('organizer.*')];
+                    if (auth()->user()->hasRole('superadmin')) {
+                        $mobileLinks[] = ['label' => 'Admin', 'url' => route('admin.dashboard'), 'active' => request()->routeIs('admin.*')];
+                    }
+                }
+            @endphp
+
+            <div class="divide-y divide-dashed divide-blue-950/15 border-y border-dashed border-blue-950/15">
+                @foreach ($mobileLinks as $link)
+                    <a href="{{ $link['url'] }}" wire:navigate @click="open = false" class="flex items-center justify-between py-6 text-2xl font-black uppercase tracking-[.18em] {{ $link['active'] ? 'text-[#071a80]' : 'text-[#1d3448]' }}">
+                        <span>{{ $link['label'] }}</span>
+                        @if ($link['active'])
+                            <span class="h-2 w-2 rounded-full bg-[#d6a31d]"></span>
+                        @endif
+                    </a>
+                @endforeach
             </div>
 
-            <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile')" wire:navigate>
-                    {{ __('Profile') }}
-                </x-responsive-nav-link>
-
-                <!-- Authentication -->
-                <button wire:click="logout" class="w-full text-start">
-                    <x-responsive-nav-link>
-                        {{ __('Log Out') }}
-                    </x-responsive-nav-link>
-                </button>
-            </div>
+            @auth
+                <div class="mt-8 flex items-center justify-between gap-4">
+                    <a href="{{ route('profile') }}" wire:navigate @click="open = false" class="text-sm font-black uppercase tracking-[.18em] text-[#071a80]">Profile</a>
+                    <button wire:click="logout" class="text-sm font-black uppercase tracking-[.18em] text-blue-950/50">Log out</button>
+                </div>
+            @else
+                <div class="mt-8 grid grid-cols-2 gap-3">
+                    <a href="{{ route('login') }}" wire:navigate @click="open = false" class="rounded-full border border-blue-950/15 px-5 py-3 text-center text-sm font-black uppercase tracking-[.12em] text-[#071a80]">Login</a>
+                    <a href="{{ route('register') }}" wire:navigate @click="open = false" class="rounded-full bg-[#071a80] px-5 py-3 text-center text-sm font-black uppercase tracking-[.12em] text-white">Register</a>
+                </div>
+            @endauth
         </div>
-        @else
-            <div class="pt-4 pb-1 border-t border-gray-200">
-                <x-responsive-nav-link :href="route('login')" wire:navigate>{{ __('Login') }}</x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('register')" wire:navigate>{{ __('Register') }}</x-responsive-nav-link>
-            </div>
-        @endauth
     </div>
 </nav>
