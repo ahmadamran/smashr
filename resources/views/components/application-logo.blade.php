@@ -2,10 +2,10 @@
     <img
         src="{{ asset('images/smashr-logo.jpg') }}"
         alt="SmashR logo"
-        width="44"
-        height="44"
-        class="h-11 w-11 rounded-md bg-black object-cover"
-        style="width: 44px; height: 44px;"
+        width="36"
+        height="36"
+        class="h-9 w-9 rounded bg-black object-cover"
+        style="width: 36px; height: 36px;"
     >
     <span class="text-xl font-black uppercase tracking-wide text-[#071a80]">SmashR</span>
 </div>
