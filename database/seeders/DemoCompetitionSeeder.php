@@ -13,6 +13,7 @@ use Modules\Ratings\Models\RatingAlgorithm;
 use Modules\Ratings\Models\RatingEvent;
 use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\Models\Tournament;
+use Modules\Tournaments\Services\TournamentDrawService;
 
 class DemoCompetitionSeeder extends Seeder
 {
@@ -36,6 +37,7 @@ class DemoCompetitionSeeder extends Seeder
         ]);
 
         $this->seedMatches($players->values(), $clubs->values(), $tournaments->values());
+        $this->seedTournamentOrganizerData($players->values(), $tournaments->values());
     }
 
     private function seedClubs()
@@ -121,15 +123,67 @@ class DemoCompetitionSeeder extends Seeder
             ['slug' => $tournament['slug']],
             [
                 'club_id' => $clubs[$tournament['club']]->id,
+                'organizer_id' => User::where('email', 'admin@smashr.test')->value('id') ?? User::query()->value('id'),
                 'name' => $tournament['name'],
                 'country' => 'Malaysia',
                 'state' => $tournament['state'],
                 'city' => $tournament['city'],
+                'venue' => $tournament['city'].' Badminton Arena',
                 'starts_at' => now()->addDays($tournament['days'][0])->toDateString(),
                 'ends_at' => now()->addDays($tournament['days'][1])->toDateString(),
                 'status' => $tournament['days'][0] > 0 ? 'published' : 'archived',
+                'registration_mode' => 'public',
+                'registration_status' => $tournament['days'][0] > 0 ? 'open' : 'closed',
+                'registration_deadline' => now()->addDays($tournament['days'][0] - 2)->toDateString(),
             ],
         ));
+    }
+
+    private function seedTournamentOrganizerData($players, $tournaments): void
+    {
+        foreach ($tournaments as $tournamentIndex => $tournament) {
+            $categories = collect([
+                ['name' => 'Open Singles', 'format' => 'singles', 'draw_mode' => 'single_elimination'],
+                ['name' => 'Amateur Doubles', 'format' => 'doubles', 'draw_mode' => 'round_robin'],
+                ['name' => 'New Talent Mixed', 'format' => 'mixed', 'draw_mode' => 'single_elimination'],
+            ])->map(fn (array $category) => $tournament->categories()->updateOrCreate(
+                ['slug' => str($category['name'])->slug()],
+                [
+                    'name' => $category['name'],
+                    'format' => $category['format'],
+                    'level_label' => str($category['name'])->beforeLast(' ')->toString(),
+                    'draw_mode' => $category['draw_mode'],
+                    'max_entrants' => 16,
+                    'status' => 'published',
+                ],
+            ));
+
+            foreach ($categories as $categoryIndex => $category) {
+                $category->entrants()->delete();
+
+                for ($entry = 0; $entry < 4; $entry++) {
+                    $entrant = $tournament->entrants()->create([
+                        'tournament_category_id' => $category->id,
+                        'created_by' => $players[($tournamentIndex + $entry) % $players->count()]->id,
+                        'status' => 'approved',
+                        'seed' => $entry + 1,
+                    ]);
+                    $entrant->players()->create([
+                        'user_id' => $players[($tournamentIndex + $categoryIndex + $entry) % $players->count()]->id,
+                        'position' => 1,
+                    ]);
+
+                    if ($category->format !== 'singles') {
+                        $entrant->players()->create([
+                            'user_id' => $players[($tournamentIndex + $categoryIndex + $entry + 7) % $players->count()]->id,
+                            'position' => 2,
+                        ]);
+                    }
+                }
+
+                app(TournamentDrawService::class)->generate($category->fresh());
+            }
+        }
     }
 
     private function seedMatches($players, $clubs, $tournaments): void

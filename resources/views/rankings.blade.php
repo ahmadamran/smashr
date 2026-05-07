@@ -50,6 +50,6 @@
             </table>
         </div>
 
-        <div class="mt-6">{{ $players->links() }}</div>
+        <div class="mt-6">{{ $players->links('pagination.smashr') }}</div>
     </div>
 </x-app-layout>

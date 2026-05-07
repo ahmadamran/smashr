@@ -10,6 +10,9 @@ use Modules\Ratings\Models\RatingAlgorithm;
 use Modules\Ratings\Services\RatingRecalculationService;
 use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\Models\Tournament;
+use Modules\Tournaments\Models\TournamentCategory;
+use Modules\Tournaments\Models\TournamentEntrant;
+use Modules\Tournaments\Services\TournamentDrawService;
 use Spatie\Permission\Models\Role;
 use Livewire\Volt\Volt;
 
@@ -40,6 +43,19 @@ Route::get('rankings', function () {
     ]);
 })->name('rankings');
 
+Route::get('matches', fn () => view('matches.index', [
+    'matches' => MatchRecord::with('players.user.playerProfile', 'club', 'tournament')
+        ->when(request('format'), fn ($query, $format) => $query->where('format', $format))
+        ->when(request('status'), fn ($query, $status) => $query->where('status', $status))
+        ->when(request('club'), fn ($query, $club) => $query->whereHas('club', fn ($clubs) => $clubs->where('slug', $club)))
+        ->when(request('tournament'), fn ($query, $tournament) => $query->whereHas('tournament', fn ($tournaments) => $tournaments->where('slug', $tournament)))
+        ->latest('played_at')
+        ->paginate(12)
+        ->withQueryString(),
+    'clubs' => Club::orderBy('name')->get(),
+    'tournaments' => Tournament::orderBy('name')->get(),
+]))->name('matches.index');
+
 Route::get('players/{playerProfile:slug}', fn (PlayerProfile $playerProfile) => view('players.show', [
     'player' => $playerProfile->load('user.clubs'),
 ]))->name('players.show');
@@ -57,11 +73,41 @@ Route::get('clubs/{club:slug}', fn (Club $club) => view('clubs.show', [
 
 Route::get('tournaments', fn () => view('tournaments.index', [
     'tournaments' => Tournament::with('club')
-        ->withCount('matches')
+        ->withCount(['matches', 'categories', 'entrants'])
         ->orderByRaw("case status when 'published' then 0 when 'draft' then 1 else 2 end")
         ->orderBy('starts_at')
         ->paginate(12),
 ]))->name('tournaments.index');
+
+Route::get('tournaments/{tournament:slug}', fn (Tournament $tournament) => view('tournaments.show', [
+    'tournament' => $tournament->load([
+        'club',
+        'organizer',
+        'categories.entrants.players.user.playerProfile',
+        'matches.players.user.playerProfile',
+        'matches.tournamentCategory',
+    ])->loadCount('matches', 'entrants'),
+]))->name('tournaments.show');
+
+Route::get('tournaments/{tournament:slug}/draws/{category:slug}', function (Tournament $tournament, TournamentCategory $category) {
+    abort_unless($category->tournament_id === $tournament->id, 404);
+
+    return view('tournaments.draw', [
+        'tournament' => $tournament->load('club', 'organizer'),
+        'category' => $category->load('entrants.players.user.playerProfile', 'matches.players.user.playerProfile'),
+    ]);
+})->name('tournaments.draw');
+
+Route::get('tournaments/{tournament:slug}/matches', fn (Tournament $tournament) => view('tournaments.matches', [
+    'tournament' => $tournament->load('club', 'organizer'),
+    'matches' => $tournament->matches()
+        ->with('players.user.playerProfile', 'tournamentCategory')
+        ->when(request('date'), fn ($query, $date) => $query->whereDate('played_at', $date))
+        ->orderBy('played_at')
+        ->orderBy('tournament_category_id')
+        ->get()
+        ->groupBy(fn (MatchRecord $match) => $match->played_at->toDateString()),
+]))->name('tournaments.matches');
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
@@ -75,6 +121,178 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('profile/player', 'profile.player-settings')->name('profile.player');
     Volt::route('matches/create', 'matches.create')->name('matches.create');
     Volt::route('matches/{match}/confirm', 'matches.confirm')->name('matches.confirm');
+
+    Route::post('tournaments/{tournament:slug}/register', function (Tournament $tournament) {
+        abort_unless($tournament->registrationOpen(), 403);
+
+        $data = request()->validate([
+            'tournament_category_id' => ['required', 'exists:tournament_categories,id'],
+            'partner_email' => ['nullable', 'email', 'exists:users,email'],
+            'partner_name' => ['nullable', 'string', 'max:120'],
+        ]);
+        $category = TournamentCategory::where('tournament_id', $tournament->id)->findOrFail($data['tournament_category_id']);
+        $partner = filled($data['partner_email'] ?? null) ? User::where('email', $data['partner_email'])->first() : null;
+
+        $entrant = TournamentEntrant::create([
+            'tournament_id' => $tournament->id,
+            'tournament_category_id' => $category->id,
+            'created_by' => auth()->id(),
+            'status' => 'pending',
+        ]);
+        $entrant->players()->create(['user_id' => auth()->id(), 'position' => 1]);
+
+        if ($category->format !== 'singles') {
+            $entrant->players()->create([
+                'user_id' => $partner?->id,
+                'display_name' => $partner ? null : ($data['partner_name'] ?? null),
+                'position' => 2,
+            ]);
+        }
+
+        return back()->with('status', 'Registration submitted for organizer approval.');
+    })->name('tournaments.register');
+
+    Route::prefix('organizer/tournaments')->name('organizer.tournaments.')->group(function () {
+        Route::get('/', fn () => view('organizer.tournaments.index', [
+            'tournaments' => Tournament::withCount('categories', 'entrants', 'matches')
+                ->when(! auth()->user()->hasRole('superadmin'), fn ($query) => $query->where('organizer_id', auth()->id()))
+                ->latest()
+                ->paginate(12),
+        ]))->name('index');
+
+        Route::get('create', fn () => view('organizer.tournaments.create', [
+            'clubs' => Club::orderBy('name')->get(),
+        ]))->name('create');
+
+        Route::post('/', function () {
+            $data = request()->validate([
+                'club_id' => ['nullable', 'exists:clubs,id'],
+                'name' => ['required', 'string', 'max:140'],
+                'country' => ['nullable', 'string', 'max:80'],
+                'state' => ['nullable', 'string', 'max:80'],
+                'city' => ['nullable', 'string', 'max:80'],
+                'venue' => ['nullable', 'string', 'max:160'],
+                'starts_at' => ['nullable', 'date'],
+                'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+                'status' => ['required', 'in:draft,published,archived'],
+                'registration_mode' => ['required', 'in:public,private,invitation'],
+                'registration_status' => ['required', 'in:open,closed'],
+                'registration_deadline' => ['nullable', 'date'],
+            ]);
+            $tournament = Tournament::create([...$data, 'organizer_id' => auth()->id(), 'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(4))]);
+
+            return redirect()->route('organizer.tournaments.edit', $tournament)->with('status', 'Tournament created.');
+        })->name('store');
+
+        Route::get('{tournament:slug}/edit', fn (Tournament $tournament) => tap(null, function () use ($tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+        }) ?? view('organizer.tournaments.edit', [
+            'tournament' => $tournament->load('categories'),
+            'clubs' => Club::orderBy('name')->get(),
+        ]))->name('edit');
+
+        Route::patch('{tournament:slug}', function (Tournament $tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            $data = request()->validate([
+                'club_id' => ['nullable', 'exists:clubs,id'],
+                'name' => ['required', 'string', 'max:140'],
+                'country' => ['nullable', 'string', 'max:80'],
+                'state' => ['nullable', 'string', 'max:80'],
+                'city' => ['nullable', 'string', 'max:80'],
+                'venue' => ['nullable', 'string', 'max:160'],
+                'starts_at' => ['nullable', 'date'],
+                'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+                'status' => ['required', 'in:draft,published,archived'],
+                'registration_mode' => ['required', 'in:public,private,invitation'],
+                'registration_status' => ['required', 'in:open,closed'],
+                'registration_deadline' => ['nullable', 'date'],
+            ]);
+            $tournament->update($data);
+
+            return back()->with('status', 'Tournament updated.');
+        })->name('update');
+
+        Route::post('{tournament:slug}/categories', function (Tournament $tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            $data = request()->validate([
+                'name' => ['required', 'string', 'max:120'],
+                'format' => ['required', 'in:singles,doubles,mixed'],
+                'level_label' => ['nullable', 'string', 'max:80'],
+                'draw_mode' => ['required', 'in:single_elimination,round_robin'],
+                'max_entrants' => ['nullable', 'integer', 'min:2', 'max:256'],
+                'status' => ['required', 'in:draft,published,closed'],
+            ]);
+            $tournament->categories()->create([...$data, 'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(3))]);
+
+            return back()->with('status', 'Category added.');
+        })->name('categories.store');
+
+        Route::get('{tournament:slug}/registrations', fn (Tournament $tournament) => tap(null, function () use ($tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+        }) ?? view('organizer.tournaments.registrations', [
+            'tournament' => $tournament->load('categories.entrants.players.user.playerProfile'),
+            'users' => User::with('playerProfile')->orderBy('name')->get(),
+        ]))->name('registrations');
+
+        Route::post('{tournament:slug}/entrants', function (Tournament $tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            $data = request()->validate([
+                'tournament_category_id' => ['required', 'exists:tournament_categories,id'],
+                'player_one_id' => ['nullable', 'exists:users,id'],
+                'player_two_id' => ['nullable', 'exists:users,id'],
+                'player_one_name' => ['nullable', 'string', 'max:120'],
+                'player_two_name' => ['nullable', 'string', 'max:120'],
+                'status' => ['required', 'in:pending,approved,rejected,withdrawn'],
+                'seed' => ['nullable', 'integer', 'min:1'],
+            ]);
+            $category = TournamentCategory::where('tournament_id', $tournament->id)->findOrFail($data['tournament_category_id']);
+            $entrant = $tournament->entrants()->create([
+                'tournament_category_id' => $category->id,
+                'created_by' => auth()->id(),
+                'status' => $data['status'],
+                'seed' => $data['seed'] ?? null,
+            ]);
+            $entrant->players()->create(['user_id' => $data['player_one_id'] ?? null, 'display_name' => $data['player_one_name'] ?? null, 'position' => 1]);
+            if ($category->format !== 'singles') {
+                $entrant->players()->create(['user_id' => $data['player_two_id'] ?? null, 'display_name' => $data['player_two_name'] ?? null, 'position' => 2]);
+            }
+
+            return back()->with('status', 'Entrant added.');
+        })->name('entrants.store');
+
+        Route::patch('{tournament:slug}/entrants/{entrant}', function (Tournament $tournament, TournamentEntrant $entrant) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            abort_unless($entrant->tournament_id === $tournament->id, 404);
+            $data = request()->validate([
+                'status' => ['required', 'in:pending,approved,rejected,withdrawn'],
+                'seed' => ['nullable', 'integer', 'min:1'],
+            ]);
+            $entrant->update($data);
+
+            return back()->with('status', 'Entrant updated.');
+        })->name('entrants.update');
+
+        Route::get('{tournament:slug}/draws', fn (Tournament $tournament) => tap(null, function () use ($tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+        }) ?? view('organizer.tournaments.draws', [
+            'tournament' => $tournament->load('categories.entrants.players.user.playerProfile', 'categories.matches.players.user.playerProfile'),
+        ]))->name('draws');
+
+        Route::post('{tournament:slug}/draws/{category}/generate', function (Tournament $tournament, TournamentCategory $category, TournamentDrawService $draws) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            abort_unless($category->tournament_id === $tournament->id, 404);
+            $created = $draws->generate($category);
+
+            return back()->with('status', "{$created} draw matches generated.");
+        })->name('draws.generate');
+
+        Route::get('{tournament:slug}/matches', fn (Tournament $tournament) => tap(null, function () use ($tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+        }) ?? view('organizer.tournaments.matches', [
+            'tournament' => $tournament->load('categories'),
+            'matches' => $tournament->matches()->with('players.user.playerProfile', 'tournamentCategory')->latest('played_at')->paginate(20),
+        ]))->name('matches');
+    });
 });
 
 Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')->group(function () {

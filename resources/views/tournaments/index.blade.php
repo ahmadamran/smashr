@@ -12,7 +12,7 @@
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             @forelse ($tournaments as $tournament)
-                <article class="rounded-lg bg-white p-6 shadow-lg">
+                <a href="{{ route('tournaments.show', $tournament) }}" class="rounded-lg bg-white p-6 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">{{ $tournament->status }}</p>
                         <span class="rounded-full bg-[#f3f6fb] px-3 py-1 text-xs font-black uppercase text-[#071a80]">{{ $tournament->starts_at?->format('M j') ?? 'TBA' }}</span>
@@ -25,8 +25,9 @@
                             <p class="mt-1 text-sm text-blue-950/50">{{ $tournament->starts_at->format('M j, Y') }} - {{ $tournament->ends_at->format('M j, Y') }}</p>
                         @endif
                         <p class="mt-3 text-sm font-black uppercase text-[#071a80]">{{ $tournament->matches_count }} matches</p>
+                        <p class="mt-1 text-sm font-bold text-blue-950/50">{{ $tournament->entrants_count }} entrants | {{ $tournament->categories_count }} categories</p>
                     </div>
-                </article>
+                </a>
             @empty
                 <div class="rounded-lg bg-white p-8 shadow-lg md:col-span-2 lg:col-span-3">
                     <h2 class="text-2xl font-black text-[#071a80]">No tournaments yet</h2>
@@ -36,7 +37,7 @@
         </div>
 
         <div class="mt-8">
-            {{ $tournaments->links() }}
+            {{ $tournaments->links('pagination.smashr') }}
         </div>
     </div>
 </x-app-layout>

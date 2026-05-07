@@ -30,7 +30,7 @@
         </div>
 
         <div class="mt-8">
-            {{ $clubs->links() }}
+            {{ $clubs->links('pagination.smashr') }}
         </div>
     </div>
 </x-app-layout>

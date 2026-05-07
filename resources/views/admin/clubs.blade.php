@@ -33,6 +33,6 @@
                 </section>
             @endforeach
         </div>
-        <div class="mt-6">{{ $clubs->links() }}</div>
+        <div class="mt-6">{{ $clubs->links('pagination.smashr') }}</div>
     </div>
 </x-app-layout>

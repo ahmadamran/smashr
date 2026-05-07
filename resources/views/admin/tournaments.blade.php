@@ -25,6 +25,6 @@
                 </form>
             @endforeach
         </div>
-        <div class="mt-6">{{ $tournaments->links() }}</div>
+        <div class="mt-6">{{ $tournaments->links('pagination.smashr') }}</div>
     </div>
 </x-app-layout>

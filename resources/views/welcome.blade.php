@@ -40,7 +40,7 @@
                 </a>
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
-                    <a href="#matches" class="hover:text-[#d6a31d]">Matches</a>
+                    <a href="{{ route('matches.index') }}" class="hover:text-[#d6a31d]">Matches</a>
                     <a href="{{ route('clubs.index') }}" class="hover:text-[#d6a31d]">Clubs</a>
                     <a href="{{ route('tournaments.index') }}" class="hover:text-[#d6a31d]">Tournaments</a>
                 </nav>
@@ -101,7 +101,7 @@
                             <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Competition feed</p>
                             <h2 class="text-3xl font-black">Recent match activity</h2>
                         </div>
-                        <a href="{{ route('matches.create') }}" class="hidden rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white md:inline-flex">Submit match</a>
+                        <a href="{{ route('matches.index') }}" class="hidden rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white md:inline-flex">View all matches</a>
                     </div>
                     <div class="grid gap-5 md:grid-cols-3">
                         @forelse ($recentMatches as $match)

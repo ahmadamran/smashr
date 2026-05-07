@@ -126,6 +126,30 @@ class SmashrPlatformTest extends TestCase
         $this->actingAs($user)->get('/dashboard')->assertOk()->assertSee('Player dashboard');
     }
 
+    public function test_public_match_index_renders_confirmed_matches(): void
+    {
+        [$winner, $loser] = [$this->player('Index Winner'), $this->player('Index Loser')];
+
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $winner->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 14], ['a' => 21, 'b' => 17]],
+            'winner_side' => 'A',
+        ]);
+        $match->players()->create(['user_id' => $winner->id, 'side' => 'A', 'position' => 1, 'confirmed_at' => now()]);
+        $match->players()->create(['user_id' => $loser->id, 'side' => 'B', 'position' => 1]);
+
+        app(RatingService::class)->confirmForUser($match, $loser->id);
+
+        $this->get('/matches')
+            ->assertOk()
+            ->assertSee('All matches')
+            ->assertSee('Index Winner')
+            ->assertSee('Index Loser');
+    }
+
     private function player(string $name): User
     {
         $user = User::factory()->create([

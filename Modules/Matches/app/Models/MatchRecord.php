@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Clubs\Models\Club;
+use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\Tournament;
 
-#[Fillable(['format', 'submitted_by', 'club_id', 'tournament_id', 'status', 'played_at', 'score', 'winner_side'])]
+#[Fillable(['format', 'submitted_by', 'club_id', 'tournament_id', 'tournament_category_id', 'status', 'played_at', 'score', 'winner_side', 'draw_round', 'draw_group', 'draw_position'])]
 class MatchRecord extends Model
 {
     protected $table = 'matches';
@@ -41,5 +42,10 @@ class MatchRecord extends Model
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    public function tournamentCategory(): BelongsTo
+    {
+        return $this->belongsTo(TournamentCategory::class);
     }
 }
