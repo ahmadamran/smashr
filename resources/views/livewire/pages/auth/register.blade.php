@@ -93,90 +93,101 @@ new #[Layout('layouts.guest')] class extends Component
     }
 }; ?>
 
-<div>
-    <form wire:submit="register">
-        <!-- Name -->
-        <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" name="name" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+<div class="grid gap-8 lg:grid-cols-[.85fr_1.15fr]">
+    <aside class="rounded-lg bg-[#071a80] p-7 text-white">
+        <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Create account</p>
+        <h1 class="mt-4 text-4xl font-black leading-tight">Join SmashR and start building your rating.</h1>
+        <div class="mt-8 space-y-4 text-sm font-bold text-white/75">
+            <p class="rounded-md bg-white/10 p-4">1. Create your login.</p>
+            <p class="rounded-md bg-white/10 p-4">2. Add your badminton profile and location.</p>
+            <p class="rounded-md bg-white/10 p-4">3. Submit matches and track ratings.</p>
         </div>
+    </aside>
 
-        <!-- Email Address -->
-        <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" name="email" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
-
-        <div class="mt-4 grid gap-4 sm:grid-cols-3">
-            <div>
-                <x-input-label for="country" :value="__('Country')" />
-                <x-text-input wire:model="country" id="country" class="block mt-1 w-full" type="text" name="country" />
+    <form wire:submit="register" class="grid gap-6">
+        <section>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Account details</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <x-input-label for="name" :value="__('Full name')" />
+                    <x-text-input wire:model="name" id="name" class="mt-2 block w-full" type="text" name="name" required autofocus autocomplete="name" placeholder="Your full name" />
+                    <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label for="email" :value="__('Email address')" />
+                    <x-text-input wire:model="email" id="email" class="mt-2 block w-full" type="email" name="email" required autocomplete="username" placeholder="you@example.com" />
+                    <x-input-error :messages="$errors->get('email')" class="mt-2" />
+                </div>
             </div>
-            <div>
-                <x-input-label for="state" :value="__('State')" />
-                <x-text-input wire:model="state" id="state" class="block mt-1 w-full" type="text" name="state" />
+        </section>
+
+        <section>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Location</p>
+            <p class="mt-2 text-sm font-bold text-blue-950/50">Use your badminton home base, for example: Kuala Lumpur, Malaysia.</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                <div>
+                    <x-input-label for="country" :value="__('Country')" />
+                    <x-text-input wire:model="country" id="country" class="mt-2 block w-full" type="text" name="country" placeholder="Malaysia" />
+                </div>
+                <div>
+                    <x-input-label for="state" :value="__('State')" />
+                    <x-text-input wire:model="state" id="state" class="mt-2 block w-full" type="text" name="state" placeholder="Selangor" />
+                </div>
+                <div>
+                    <x-input-label for="city" :value="__('City')" />
+                    <x-text-input wire:model="city" id="city" class="mt-2 block w-full" type="text" name="city" placeholder="Petaling Jaya" />
+                </div>
             </div>
-            <div>
-                <x-input-label for="city" :value="__('City')" />
-                <x-text-input wire:model="city" id="city" class="block mt-1 w-full" type="text" name="city" />
+        </section>
+
+        <section>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Badminton profile</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                <div>
+                    <x-input-label for="preferred_hand" :value="__('Preferred hand')" />
+                    <select wire:model="preferred_hand" id="preferred_hand" class="mt-2 block w-full rounded-md border-gray-300">
+                        <option value="right">Right</option>
+                        <option value="left">Left</option>
+                    </select>
+                </div>
+                <div>
+                    <x-input-label for="primary_format" :value="__('Primary format')" />
+                    <select wire:model="primary_format" id="primary_format" class="mt-2 block w-full rounded-md border-gray-300">
+                        <option value="doubles">Doubles</option>
+                        <option value="singles">Singles</option>
+                    </select>
+                </div>
+                <div>
+                    <x-input-label for="club_name" :value="__('Club optional')" />
+                    <x-text-input wire:model="club_name" id="club_name" class="mt-2 block w-full" type="text" name="club_name" placeholder="Club name" />
+                </div>
             </div>
-        </div>
+        </section>
 
-        <div class="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-                <x-input-label for="preferred_hand" :value="__('Preferred hand')" />
-                <select wire:model="preferred_hand" id="preferred_hand" class="block mt-1 w-full rounded-md border-gray-300">
-                    <option value="right">Right</option>
-                    <option value="left">Left</option>
-                </select>
+        <section>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Password</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <x-input-label for="password" :value="__('Password')" />
+                    <x-text-input wire:model="password" id="password" class="mt-2 block w-full" type="password" name="password" required autocomplete="new-password" />
+                    <x-input-error :messages="$errors->get('password')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label for="password_confirmation" :value="__('Confirm password')" />
+                    <x-text-input wire:model="password_confirmation" id="password_confirmation" class="mt-2 block w-full" type="password" name="password_confirmation" required autocomplete="new-password" />
+                    <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+                </div>
             </div>
-            <div>
-                <x-input-label for="primary_format" :value="__('Primary format')" />
-                <select wire:model="primary_format" id="primary_format" class="block mt-1 w-full rounded-md border-gray-300">
-                    <option value="doubles">Doubles</option>
-                    <option value="singles">Singles</option>
-                </select>
-            </div>
-        </div>
+        </section>
 
-        <div class="mt-4">
-            <x-input-label for="club_name" :value="__('Club name optional')" />
-            <x-text-input wire:model="club_name" id="club_name" class="block mt-1 w-full" type="text" name="club_name" />
-        </div>
-
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input wire:model="password" id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
-
-        <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-
-            <x-text-input wire:model="password_confirmation" id="password_confirmation" class="block mt-1 w-full"
-                            type="password"
-                            name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}" wire:navigate>
-                {{ __('Already registered?') }}
+        <div class="flex flex-col gap-4 border-t border-blue-950/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <a class="text-sm font-bold text-blue-950/50 underline hover:text-[#071a80]" href="{{ route('login') }}" wire:navigate>
+                {{ __('Already have an account?') }}
             </a>
 
-            <x-primary-button class="ms-4">
-                {{ __('Register') }}
-            </x-primary-button>
+            <button class="rounded-full bg-[#071a80] px-7 py-4 text-sm font-black uppercase tracking-[.12em] text-white hover:bg-[#0b2bc1]">
+                {{ __('Create account') }}
+            </button>
         </div>
     </form>
 </div>
