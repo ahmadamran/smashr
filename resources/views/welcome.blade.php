@@ -28,7 +28,7 @@
         <header class="border-b border-white/10 bg-white text-[#071a80]">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
                 <a href="/" class="flex items-center">
-                    <img src="{{ asset('images/smashr-wordmark.jpg') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 bg-black object-contain" style="width: 128px; height: 32px;">
+                    <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 object-contain" style="width: 128px; height: 32px;">
                 </a>
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>

@@ -24,7 +24,7 @@ new class extends Component
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate class="flex items-center">
-                        <img src="{{ asset('images/smashr-wordmark.jpg') }}" alt="SmashR" width="116" height="29" class="h-7 w-[116px] bg-black object-contain" style="width: 116px; height: 29px;">
+                        <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="116" height="29" class="h-7 w-[116px] object-contain" style="width: 116px; height: 29px;">
                     </a>
                 </div>
 
