@@ -21,7 +21,7 @@ new class extends Component
     <div class="mx-auto max-w-7xl px-5">
         <div class="flex h-16 items-center justify-between">
             <!-- Logo -->
-            <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate class="flex items-center">
+            <a href="{{ url('/') }}" wire:navigate class="flex items-center">
                 <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 object-contain" style="width: 128px; height: 32px;">
             </a>
 
@@ -95,7 +95,7 @@ new class extends Component
     <!-- Responsive Navigation Menu -->
     <div x-show="open" x-transition.opacity class="fixed inset-0 z-50 bg-white sm:hidden" style="display: none;">
         <div class="flex h-20 items-center justify-between border-b border-blue-950/10 px-6">
-            <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate @click="open = false">
+            <a href="{{ url('/') }}" wire:navigate @click="open = false">
                 <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="136" height="34" class="h-[34px] w-[136px] object-contain" style="width: 136px; height: 34px;">
             </a>
             <button @click="open = false" class="text-blue-950/45">

@@ -12,7 +12,7 @@
         ? PlayerProfile::where('doubles_matches', '>', 0)->orderByDesc('doubles_rating')->limit(3)->get()
         : collect();
     $recentMatches = Schema::hasTable('matches')
-        ? MatchRecord::with('players.user.playerProfile')->latest()->limit(3)->get()
+        ? MatchRecord::with('players.user.playerProfile')->where('status', 'confirmed')->latest()->limit(3)->get()
         : collect();
     $featuredClubs = Schema::hasTable('clubs')
         ? Club::withCount('members')->orderByDesc('members_count')->orderBy('name')->limit(6)->get()

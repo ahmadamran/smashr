@@ -74,6 +74,12 @@ class DemoCompetitionSeeder extends Seeder
             'Mei Ling', 'Adam Zulkarnain', 'Priya Nair', 'Jason Wong', 'Alya Sofea',
             'Ben Lim', 'Nadia Rahman', 'Marcus Lee', 'Hana Ismail', 'Kevin Chua',
             'Sofia Chan', 'Amir Danish', 'Liyana Omar', 'Ethan Teo', 'Mira Yusof',
+            'Irfan Syah', 'Qistina Azman', 'Farhan Rosli', 'Michelle Goh', 'Hakim Zain',
+            'Nur Aisyah', 'Victor Chong', 'Anis Iman', 'Ryan Low', 'Sabrina Lim',
+            'Faiz Ariff', 'Carmen Tan', 'Azri Hafiz', 'Daphne Wong', 'Rizal Hamid',
+            'Elena Chew', 'Syafiq Rahim', 'Janice Foo', 'Harith Danish', 'Nora Lee',
+            'Wei Han', 'Aqilah Zulkifli', 'Brandon Yap', 'Nurin Batrisya', 'Colin Teh',
+            'Maisarah Yusri', 'Gavin Ong', 'Izz Amirul', 'Rachel Lau', 'Zara Imani',
         ];
 
         $demoPlayers = collect($names)->map(function (string $name, int $index) use ($clubs) {
@@ -175,7 +181,7 @@ class DemoCompetitionSeeder extends Seeder
                     'format' => $category['format'],
                     'level_label' => str($category['name'])->beforeLast(' ')->toString(),
                     'draw_mode' => $category['draw_mode'],
-                    'max_entrants' => 16,
+                    'max_entrants' => $tournament->slug === 'borneo-flight-invitational' ? 64 : 16,
                     'status' => 'published',
                 ],
             ));
@@ -183,7 +189,9 @@ class DemoCompetitionSeeder extends Seeder
             foreach ($categories as $categoryIndex => $category) {
                 $category->entrants()->delete();
 
-                for ($entry = 0; $entry < 4; $entry++) {
+                $entrantCount = $this->tournamentEntrantCount($tournament->slug, $category->format);
+
+                for ($entry = 0; $entry < $entrantCount; $entry++) {
                     $entrant = $tournament->entrants()->create([
                         'tournament_category_id' => $category->id,
                         'created_by' => $players[($tournamentIndex + $entry) % $players->count()]->id,
@@ -208,13 +216,24 @@ class DemoCompetitionSeeder extends Seeder
         }
     }
 
+    private function tournamentEntrantCount(string $tournamentSlug, string $format): int
+    {
+        if ($tournamentSlug !== 'borneo-flight-invitational') {
+            return 4;
+        }
+
+        return $format === 'singles' ? 50 : 25;
+    }
+
     private function seedMatches($players, $clubs, $tournaments): void
     {
         for ($index = 0; $index < 50; $index++) {
             $format = $index % 3 === 0 ? 'singles' : 'doubles';
             $club = $clubs[$index % $clubs->count()];
             $tournament = $index % 2 === 0 ? $tournaments[$index % $tournaments->count()] : null;
-            $playedAt = now()->subDays(65 - $index)->toDateString();
+            $playedAt = $tournament?->slug === 'borneo-flight-invitational'
+                ? $tournament->starts_at->toDateString()
+                : now()->subDays(65 - $index)->toDateString();
             $winnerSide = $index % 4 === 0 ? 'B' : 'A';
 
             $match = MatchRecord::create([
