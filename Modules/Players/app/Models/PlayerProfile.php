@@ -12,9 +12,13 @@ use Modules\Clubs\Models\Club;
     'user_id',
     'display_name',
     'slug',
+    'phone_number',
+    'gender',
+    'birthdate',
     'country',
     'state',
     'city',
+    'postal_code',
     'preferred_hand',
     'primary_format',
     'singles_rating',
@@ -32,6 +36,7 @@ class PlayerProfile extends Model
     protected function casts(): array
     {
         return [
+            'birthdate' => 'date',
             'singles_rating' => 'decimal:3',
             'doubles_rating' => 'decimal:3',
         ];

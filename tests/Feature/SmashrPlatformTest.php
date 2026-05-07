@@ -19,11 +19,16 @@ class SmashrPlatformTest extends TestCase
     public function test_registration_creates_player_profile_and_club_membership(): void
     {
         Volt::test('pages.auth.register')
-            ->set('name', 'Amran Shuttler')
+            ->set('first_name', 'Amran')
+            ->set('last_name', 'Shuttler')
             ->set('email', 'amran@example.com')
+            ->set('phone_number', '+60123456789')
+            ->set('gender', 'male')
+            ->set('birthdate', '1990-01-01')
             ->set('country', 'Malaysia')
             ->set('state', 'Selangor')
             ->set('city', 'Shah Alam')
+            ->set('postal_code', '40100')
             ->set('primary_format', 'doubles')
             ->set('preferred_hand', 'right')
             ->set('club_name', 'Smashr Shah Alam')

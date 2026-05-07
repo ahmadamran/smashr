@@ -13,11 +13,16 @@ use Modules\Players\Models\PlayerProfile;
 
 new #[Layout('layouts.guest')] class extends Component
 {
-    public string $name = '';
+    public string $first_name = '';
+    public string $last_name = '';
     public string $email = '';
+    public string $phone_number = '';
+    public string $gender = '';
+    public string $birthdate = '';
     public string $country = '';
     public string $state = '';
     public string $city = '';
+    public string $postal_code = '';
     public string $preferred_hand = 'right';
     public string $primary_format = 'doubles';
     public string $club_name = '';
@@ -30,19 +35,25 @@ new #[Layout('layouts.guest')] class extends Component
     public function register(): void
     {
         $validated = $this->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'phone_number' => ['required', 'string', 'max:40'],
+            'gender' => ['required', 'in:male,female,other,prefer_not_to_say'],
+            'birthdate' => ['required', 'date', 'before:today'],
             'country' => ['nullable', 'string', 'max:80'],
             'state' => ['nullable', 'string', 'max:80'],
             'city' => ['nullable', 'string', 'max:80'],
+            'postal_code' => ['nullable', 'string', 'max:20'],
             'preferred_hand' => ['required', 'in:right,left'],
             'primary_format' => ['required', 'in:singles,doubles'],
             'club_name' => ['nullable', 'string', 'max:120'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
         ]);
+        $fullName = trim($validated['first_name'].' '.$validated['last_name']);
 
         $userData = [
-            'name' => $validated['name'],
+            'name' => $fullName,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
         ];
@@ -51,11 +62,15 @@ new #[Layout('layouts.guest')] class extends Component
 
         $profile = PlayerProfile::create([
             'user_id' => $user->id,
-            'display_name' => $validated['name'],
-            'slug' => $this->uniqueSlug(Str::slug($validated['name']) ?: 'player'),
+            'display_name' => $fullName,
+            'slug' => $this->uniqueSlug(Str::slug($fullName) ?: 'player'),
+            'phone_number' => $validated['phone_number'],
+            'gender' => $validated['gender'],
+            'birthdate' => $validated['birthdate'],
             'country' => $validated['country'],
             'state' => $validated['state'],
             'city' => $validated['city'],
+            'postal_code' => $validated['postal_code'],
             'preferred_hand' => $validated['preferred_hand'],
             'primary_format' => $validated['primary_format'],
         ]);
@@ -109,14 +124,46 @@ new #[Layout('layouts.guest')] class extends Component
             <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Account details</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
-                    <x-input-label for="name" :value="__('Full name')" />
-                    <x-text-input wire:model="name" id="name" class="mt-2 block w-full" type="text" name="name" required autofocus autocomplete="name" placeholder="Your full name" />
-                    <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                    <x-input-label for="first_name" :value="__('First Name')" />
+                    <x-text-input wire:model="first_name" id="first_name" class="mt-2 block w-full" type="text" name="first_name" required autofocus autocomplete="given-name" placeholder="First name" />
+                    <x-input-error :messages="$errors->get('first_name')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label for="last_name" :value="__('Last Name')" />
+                    <x-text-input wire:model="last_name" id="last_name" class="mt-2 block w-full" type="text" name="last_name" required autocomplete="family-name" placeholder="Last name" />
+                    <x-input-error :messages="$errors->get('last_name')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="email" :value="__('Email address')" />
                     <x-text-input wire:model="email" id="email" class="mt-2 block w-full" type="email" name="email" required autocomplete="username" placeholder="you@example.com" />
                     <x-input-error :messages="$errors->get('email')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label for="phone_number" :value="__('Phone Number')" />
+                    <x-text-input wire:model="phone_number" id="phone_number" class="mt-2 block w-full" type="tel" name="phone_number" required autocomplete="tel" placeholder="+60..." />
+                    <x-input-error :messages="$errors->get('phone_number')" class="mt-2" />
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Player details</p>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <x-input-label for="gender" :value="__('Gender')" />
+                    <select wire:model="gender" id="gender" class="mt-2 block w-full rounded-md border-gray-300" required>
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
+                    <x-input-error :messages="$errors->get('gender')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label for="birthdate" :value="__('Birthdate')" />
+                    <x-text-input wire:model="birthdate" id="birthdate" class="mt-2 block w-full" type="date" name="birthdate" required autocomplete="bday" />
+                    <x-input-error :messages="$errors->get('birthdate')" class="mt-2" />
                 </div>
             </div>
         </section>
@@ -124,7 +171,7 @@ new #[Layout('layouts.guest')] class extends Component
         <section>
             <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Location</p>
             <p class="mt-2 text-sm font-bold text-blue-950/50">Use your badminton home base, for example: Kuala Lumpur, Malaysia.</p>
-            <div class="mt-4 grid gap-4 sm:grid-cols-3">
+            <div class="mt-4 grid gap-4 sm:grid-cols-4">
                 <div>
                     <x-input-label for="country" :value="__('Country')" />
                     <x-text-input wire:model="country" id="country" class="mt-2 block w-full" type="text" name="country" placeholder="Malaysia" />
@@ -136,6 +183,11 @@ new #[Layout('layouts.guest')] class extends Component
                 <div>
                     <x-input-label for="city" :value="__('City')" />
                     <x-text-input wire:model="city" id="city" class="mt-2 block w-full" type="text" name="city" placeholder="Petaling Jaya" />
+                </div>
+                <div>
+                    <x-input-label for="postal_code" :value="__('Zip')" />
+                    <x-text-input wire:model="postal_code" id="postal_code" class="mt-2 block w-full" type="text" name="postal_code" autocomplete="postal-code" placeholder="46000" />
+                    <x-input-error :messages="$errors->get('postal_code')" class="mt-2" />
                 </div>
             </div>
         </section>
