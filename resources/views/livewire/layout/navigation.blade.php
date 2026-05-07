@@ -16,7 +16,7 @@ new class extends Component
     }
 }; ?>
 
-<nav x-data="{ open: false }" class="border-b border-blue-950/10 bg-white">
+<nav x-data="{ open: false }" class="border-b border-blue-950/10 bg-white text-[#071a80]">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -29,19 +29,19 @@ new class extends Component
                 </div>
 
                 <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                <div class="hidden items-center gap-8 text-sm font-extrabold uppercase md:ms-10 md:flex">
                     @auth
-                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</x-nav-link>
+                        <a href="{{ route('dashboard') }}" wire:navigate class="{{ request()->routeIs('dashboard') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Dashboard') }}</a>
                     @endauth
-                    <x-nav-link :href="route('rankings')" :active="request()->routeIs('rankings')" wire:navigate>{{ __('Rankings') }}</x-nav-link>
-                    <x-nav-link :href="route('matches.index')" :active="request()->routeIs('matches.index')" wire:navigate>{{ __('Matches') }}</x-nav-link>
-                    <x-nav-link :href="route('clubs.index')" :active="request()->routeIs('clubs.*')" wire:navigate>{{ __('Clubs') }}</x-nav-link>
-                    <x-nav-link :href="route('tournaments.index')" :active="request()->routeIs('tournaments.*')" wire:navigate>{{ __('Tournaments') }}</x-nav-link>
+                    <a href="{{ route('rankings') }}" wire:navigate class="{{ request()->routeIs('rankings') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Rankings') }}</a>
+                    <a href="{{ route('matches.index') }}" wire:navigate class="{{ request()->routeIs('matches.index') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Matches') }}</a>
+                    <a href="{{ route('clubs.index') }}" wire:navigate class="{{ request()->routeIs('clubs.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Clubs') }}</a>
+                    <a href="{{ route('tournaments.index') }}" wire:navigate class="{{ request()->routeIs('tournaments.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Tournaments') }}</a>
                     @auth
-                        <x-nav-link :href="route('matches.create')" :active="request()->routeIs('matches.create')" wire:navigate>{{ __('Submit Match') }}</x-nav-link>
-                        <x-nav-link :href="route('organizer.tournaments.index')" :active="request()->routeIs('organizer.*')" wire:navigate>{{ __('Organizer') }}</x-nav-link>
+                        <a href="{{ route('matches.create') }}" wire:navigate class="{{ request()->routeIs('matches.create') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Submit Match') }}</a>
+                        <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Organizer') }}</a>
                         @if (auth()->user()->hasRole('superadmin'))
-                            <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')" wire:navigate>{{ __('Admin') }}</x-nav-link>
+                            <a href="{{ route('admin.dashboard') }}" wire:navigate class="{{ request()->routeIs('admin.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Admin') }}</a>
                         @endif
                     @endauth
                 </div>
@@ -52,7 +52,7 @@ new class extends Component
                 @auth
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
+                        <button class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-bold uppercase leading-4 text-[#071a80] transition hover:text-[#d6a31d] focus:outline-none">
                             <div x-data="{{ json_encode(['name' => auth()->user()->name]) }}" x-text="name" x-on:profile-updated.window="name = $event.detail.name"></div>
 
                             <div class="ms-1">
