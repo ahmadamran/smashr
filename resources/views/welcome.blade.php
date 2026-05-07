@@ -1,6 +1,8 @@
 @php
     use Modules\Players\Models\PlayerProfile;
     use Modules\Matches\Models\MatchRecord;
+    use Modules\Clubs\Models\Club;
+    use Modules\Tournaments\Models\Tournament;
     use Illuminate\Support\Facades\Schema;
 
     $topSingles = Schema::hasTable('player_profiles')
@@ -11,6 +13,12 @@
         : collect();
     $recentMatches = Schema::hasTable('matches')
         ? MatchRecord::with('players.user.playerProfile')->latest()->limit(3)->get()
+        : collect();
+    $featuredClubs = Schema::hasTable('clubs')
+        ? Club::withCount('members')->orderByDesc('members_count')->orderBy('name')->limit(6)->get()
+        : collect();
+    $featuredTournaments = Schema::hasTable('tournaments')
+        ? Tournament::with('club')->orderByRaw("case status when 'published' then 0 when 'draft' then 1 else 2 end")->orderBy('starts_at')->limit(6)->get()
         : collect();
 @endphp
 
@@ -34,6 +42,7 @@
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
                     <a href="#matches" class="hover:text-[#d6a31d]">Matches</a>
                     <a href="#clubs" class="hover:text-[#d6a31d]">Clubs</a>
+                    <a href="#tournaments" class="hover:text-[#d6a31d]">Tournaments</a>
                 </nav>
                 <div class="flex items-center gap-4 text-sm font-bold uppercase">
                     @auth
@@ -112,20 +121,66 @@
             </section>
 
             <section id="clubs" class="bg-white py-14 text-[#06164a]">
-                <div class="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-2">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Built for clubs</p>
-                        <h2 class="text-4xl font-black">A leaderboard home for every badminton hall.</h2>
+                <div class="mx-auto max-w-7xl px-5">
+                    <div class="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Built for clubs</p>
+                            <h2 class="text-4xl font-black">Club directory</h2>
+                        </div>
+                        <p class="max-w-xl text-blue-950/60">Find badminton communities, compare active members, and open each club leaderboard.</p>
                     </div>
-                    <div class="grid gap-4">
-                        <div class="rounded-lg border border-blue-950/10 p-6">
-                            <h3 class="font-black">Confirmed results</h3>
-                            <p class="mt-2 text-blue-950/60">Players submit matches and opponents confirm before ratings move.</p>
+                    <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        @forelse ($featuredClubs as $club)
+                            <a href="{{ route('clubs.show', $club) }}" class="rounded-lg border border-blue-950/10 p-6 transition hover:border-[#d6a31d] hover:shadow-lg">
+                                <p class="text-xs font-black uppercase tracking-[.22em] text-[#d6a31d]">{{ $club->city ?: $club->state ?: $club->country ?: 'Club' }}</p>
+                                <h3 class="mt-3 text-2xl font-black text-[#071a80]">{{ $club->name }}</h3>
+                                <p class="mt-3 text-sm text-blue-950/60">{{ $club->description ?: 'A SmashR badminton club.' }}</p>
+                                <div class="mt-6 flex items-center justify-between border-t border-blue-950/10 pt-4">
+                                    <span class="text-sm font-bold text-blue-950/60">Members</span>
+                                    <span class="text-2xl font-black text-[#071a80]">{{ $club->members_count }}</span>
+                                </div>
+                            </a>
+                        @empty
+                            <article class="rounded-lg border border-blue-950/10 p-6 md:col-span-2 lg:col-span-3">
+                                <h3 class="text-xl font-black text-[#071a80]">No clubs yet</h3>
+                                <p class="mt-2 text-blue-950/60">Create a profile and add your club to start building the directory.</p>
+                            </article>
+                        @endforelse
+                    </div>
+                </div>
+            </section>
+
+            <section id="tournaments" class="bg-[#f3f6fb] py-14 text-[#06164a]">
+                <div class="mx-auto max-w-7xl px-5">
+                    <div class="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Tournament calendar</p>
+                            <h2 class="text-4xl font-black">Upcoming and recent tournaments</h2>
                         </div>
-                        <div class="rounded-lg border border-blue-950/10 p-6">
-                            <h3 class="font-black">Separate formats</h3>
-                            <p class="mt-2 text-blue-950/60">Singles and doubles ratings stay separate, because badminton demands both.</p>
-                        </div>
+                        <a href="{{ route('register') }}" class="w-fit rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white">Join SmashR</a>
+                    </div>
+                    <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        @forelse ($featuredTournaments as $tournament)
+                            <article class="rounded-lg bg-white p-6 shadow-lg">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">{{ $tournament->status }}</p>
+                                    <span class="rounded-full bg-[#f3f6fb] px-3 py-1 text-xs font-black uppercase text-[#071a80]">{{ $tournament->starts_at?->format('M j') ?? 'TBA' }}</span>
+                                </div>
+                                <h3 class="mt-4 text-2xl font-black text-[#071a80]">{{ $tournament->name }}</h3>
+                                <p class="mt-3 text-sm text-blue-950/60">{{ collect([$tournament->city, $tournament->state, $tournament->country])->filter()->join(', ') ?: 'Location TBA' }}</p>
+                                <div class="mt-6 border-t border-blue-950/10 pt-4">
+                                    <p class="text-sm font-bold text-blue-950/60">{{ $tournament->club?->name ?? 'Independent tournament' }}</p>
+                                    @if ($tournament->starts_at && $tournament->ends_at)
+                                        <p class="mt-1 text-sm text-blue-950/50">{{ $tournament->starts_at->format('M j, Y') }} - {{ $tournament->ends_at->format('M j, Y') }}</p>
+                                    @endif
+                                </div>
+                            </article>
+                        @empty
+                            <article class="rounded-lg bg-white p-6 shadow-lg md:col-span-2 lg:col-span-3">
+                                <h3 class="text-xl font-black text-[#071a80]">No tournaments yet</h3>
+                                <p class="mt-2 text-blue-950/60">Publish tournaments from the admin area to show them here.</p>
+                            </article>
+                        @endforelse
                     </div>
                 </div>
             </section>
