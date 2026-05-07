@@ -3,6 +3,7 @@
 namespace Modules\Tournaments\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
@@ -13,11 +14,17 @@ class TournamentDrawService
     {
         $category->load('tournament', 'approvedEntrants.players.user.playerProfile');
 
-        MatchRecord::where('tournament_category_id', $category->id)->delete();
-
         $entrants = $category->approvedEntrants
             ->sortBy(fn (TournamentEntrant $entrant) => $entrant->seed ?? 9999)
             ->values();
+
+        if ($entrants->count() < 2) {
+            throw ValidationException::withMessages([
+                'draw' => 'At least two approved entrants are required to generate a draw.',
+            ]);
+        }
+
+        MatchRecord::where('tournament_category_id', $category->id)->delete();
 
         if ($category->draw_mode === 'round_robin') {
             return $this->roundRobin($category, $entrants);
@@ -38,7 +45,7 @@ class TournamentDrawService
                 continue;
             }
 
-            $created += $this->createMatch($category, $pair[0], $pair[1], 1, null, $position + 1);
+            $created += $this->createMatch($category, $pair->get(0), $pair->get(1), 1, null, $position + 1);
         }
 
         return $created;
@@ -50,9 +57,10 @@ class TournamentDrawService
         $groups = $entrants->values()->chunk(4)->values();
 
         foreach ($groups as $groupIndex => $groupEntrants) {
+            $groupEntrants = $groupEntrants->values();
             $groupName = 'Group '.chr(65 + $groupIndex);
 
-            foreach ($groupEntrants->values() as $position => $entrant) {
+            foreach ($groupEntrants as $position => $entrant) {
                 $entrant->forceFill([
                     'group_name' => $groupName,
                     'draw_position' => $position + 1,
@@ -61,7 +69,7 @@ class TournamentDrawService
 
             for ($i = 0; $i < $groupEntrants->count(); $i++) {
                 for ($j = $i + 1; $j < $groupEntrants->count(); $j++) {
-                    $created += $this->createMatch($category, $groupEntrants[$i], $groupEntrants[$j], 1, $groupName, $created + 1);
+                    $created += $this->createMatch($category, $groupEntrants->get($i), $groupEntrants->get($j), 1, $groupName, $created + 1);
                 }
             }
         }

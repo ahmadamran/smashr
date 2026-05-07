@@ -8,7 +8,22 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tournament_id', 'tournament_category_id', 'created_by', 'name', 'status', 'seed', 'draw_position', 'group_name'])]
+#[Fillable([
+    'tournament_id',
+    'tournament_category_id',
+    'created_by',
+    'name',
+    'contact_name',
+    'contact_phone',
+    'identity_type',
+    'identity_number',
+    'identity_document_path',
+    'kyc_status',
+    'status',
+    'seed',
+    'draw_position',
+    'group_name',
+])]
 class TournamentEntrant extends Model
 {
     public function tournament(): BelongsTo

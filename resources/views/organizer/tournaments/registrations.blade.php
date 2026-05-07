@@ -32,6 +32,15 @@
                                 <div class="md:col-span-2">
                                     <p class="font-black text-[#071a80]">{{ $entrant->displayName() ?: 'Unnamed entrant' }}</p>
                                     <p class="text-xs font-bold uppercase text-blue-950/40">{{ $entrant->created_at->format('M j, Y') }}</p>
+                                    @if ($entrant->contact_name || $entrant->contact_phone || $entrant->identity_number)
+                                        <div class="mt-3 rounded-md bg-[#f3f6fb] p-3 text-xs font-bold text-blue-950/60">
+                                            <p>{{ $entrant->contact_name ?: 'No contact name' }} @if($entrant->contact_phone) | {{ $entrant->contact_phone }} @endif</p>
+                                            <p class="mt-1 uppercase">{{ $entrant->identity_type ?: 'KYC' }}: {{ $entrant->identity_number ?: 'Not provided' }} | {{ $entrant->kyc_status }}</p>
+                                            @if ($entrant->identity_document_path)
+                                                <a href="{{ route('organizer.tournaments.entrants.document', [$tournament, $entrant]) }}" class="mt-2 inline-flex text-[#071a80] underline">Download KYC document</a>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                                 <select name="status" class="rounded-md border-gray-300">
                                     @foreach (['pending','approved','rejected','withdrawn'] as $status)

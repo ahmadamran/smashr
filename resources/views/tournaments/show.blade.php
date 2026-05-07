@@ -35,16 +35,8 @@
                 <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Registration</p>
                 @auth
                     @if ($tournament->registrationOpen() && $tournament->categories->isNotEmpty())
-                        <form method="POST" action="{{ route('tournaments.register', $tournament) }}" class="mt-5 grid gap-3">@csrf
-                            <select name="tournament_category_id" class="rounded-md border-blue-950/10">
-                                @foreach ($tournament->categories->where('status', 'published') as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }} | {{ str_replace('_', ' ', $category->draw_mode) }}</option>
-                                @endforeach
-                            </select>
-                            <input name="partner_email" placeholder="Partner email for doubles/mixed" class="rounded-md border-blue-950/10">
-                            <input name="partner_name" placeholder="Partner name if not a Smashr user" class="rounded-md border-blue-950/10">
-                            <button class="rounded-md bg-[#071a80] px-4 py-3 text-sm font-black uppercase text-white">Request registration</button>
-                        </form>
+                        <p class="mt-4 text-sm font-bold text-blue-950/60">Submit your category, contact details, and SmashR KYC document on the dedicated registration page.</p>
+                        <a href="{{ route('tournaments.register.form', $tournament) }}" class="mt-5 inline-flex rounded-md bg-[#071a80] px-4 py-3 text-sm font-black uppercase text-white">Open registration</a>
                     @else
                         <p class="mt-4 text-sm font-bold text-blue-950/60">Registration is not open for this tournament.</p>
                     @endif

@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Modules\Ratings\Models\RatingEvent;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
@@ -69,21 +72,40 @@ class TournamentOrganizerTest extends TestCase
         $player = $this->player('Registration Player');
         $tournament = $this->tournament($organizer);
         $category = $this->category($tournament, 'Open Singles', 'singles');
+        Storage::fake('local');
 
         $this->actingAs($player)
-            ->post(route('tournaments.register', $tournament), ['tournament_category_id' => $category->id])
+            ->post(route('tournaments.register', $tournament), [
+                'tournament_category_id' => $category->id,
+                'contact_name' => 'Registration Player',
+                'contact_phone' => '+60123456789',
+                'identity_type' => 'ic',
+                'identity_number' => '900101-10-1234',
+                'identity_document' => UploadedFile::fake()->image('ic.jpg'),
+            ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('tournament_entrants', [
             'tournament_id' => $tournament->id,
             'tournament_category_id' => $category->id,
+            'contact_phone' => '+60123456789',
+            'identity_type' => 'ic',
             'status' => 'pending',
+            'kyc_status' => 'pending',
         ]);
+        $this->assertNotNull(TournamentEntrant::where('tournament_id', $tournament->id)->value('identity_document_path'));
 
         $tournament->forceFill(['registration_mode' => 'private'])->save();
 
         $this->actingAs($player)
-            ->post(route('tournaments.register', $tournament), ['tournament_category_id' => $category->id])
+            ->post(route('tournaments.register', $tournament), [
+                'tournament_category_id' => $category->id,
+                'contact_name' => 'Registration Player',
+                'contact_phone' => '+60123456789',
+                'identity_type' => 'ic',
+                'identity_number' => '900101-10-1234',
+                'identity_document' => UploadedFile::fake()->image('ic.jpg'),
+            ])
             ->assertForbidden();
     }
 
@@ -130,6 +152,133 @@ class TournamentOrganizerTest extends TestCase
             ->post(route('organizer.tournaments.draws.generate', [$tournament, $roundRobin]))
             ->assertRedirect();
         $this->assertSame(6, $roundRobin->matches()->count());
+    }
+
+    public function test_draw_generation_uses_category_from_the_selected_tournament(): void
+    {
+        $otherOrganizer = $this->player('Other Draw Owner');
+        $otherTournament = $this->tournament($otherOrganizer);
+        $otherTournament->categories()->create([
+            'name' => 'Amateur Doubles',
+            'slug' => 'amateur-doubles',
+            'format' => 'doubles',
+            'draw_mode' => 'round_robin',
+            'status' => 'published',
+        ]);
+
+        $organizer = $this->player('Scoped Draw Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $tournament->categories()->create([
+            'name' => 'Amateur Doubles',
+            'slug' => 'amateur-doubles',
+            'format' => 'doubles',
+            'draw_mode' => 'round_robin',
+            'status' => 'published',
+        ]);
+
+        $players = collect(range(1, 8))->map(fn ($i) => $this->player('Scoped Draw Player '.$i));
+        foreach ($players->chunk(2)->values() as $index => $pair) {
+            $this->entrant($tournament, $category, $pair->values()->all(), 'approved', $index + 1);
+        }
+
+        $this->actingAs($organizer)
+            ->post(route('organizer.tournaments.draws.generate', [$tournament, $category]))
+            ->assertRedirect();
+
+        $this->assertSame(6, $category->matches()->count());
+    }
+
+    public function test_draw_generation_requires_two_approved_entrants(): void
+    {
+        $organizer = $this->player('Empty Draw Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Empty Singles', 'singles');
+
+        $this->actingAs($organizer)
+            ->post(route('organizer.tournaments.draws.generate', [$tournament, $category]))
+            ->assertSessionHasErrors('draw');
+
+        $this->assertSame(0, $category->matches()->count());
+    }
+
+    public function test_direct_generate_draw_url_redirects_to_draws_page(): void
+    {
+        $organizer = $this->player('Direct Draw Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Direct Singles', 'singles');
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.draws.generate.notice', [$tournament, $category]))
+            ->assertRedirect(route('organizer.tournaments.draws', $tournament))
+            ->assertSessionHasErrors('draw');
+    }
+
+    public function test_organizer_can_submit_tournament_match_result(): void
+    {
+        $organizer = $this->player('Result Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Result Doubles', 'doubles', 'round_robin');
+
+        $players = collect(range(1, 4))->map(fn ($i) => $this->player('Result Player '.$i));
+        foreach ($players->chunk(2)->values() as $index => $pair) {
+            $this->entrant($tournament, $category, $pair->values()->all(), 'approved', $index + 1);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+        $match = $category->matches()->firstOrFail();
+
+        $this->actingAs($organizer)
+            ->patch(route('organizer.tournaments.matches.result', [$tournament, $match]), [
+                'played_at' => now()->toDateString(),
+                'winner_side' => 'B',
+                'games' => [
+                    ['a' => 21, 'b' => 19],
+                    ['a' => 18, 'b' => 21],
+                    ['a' => 16, 'b' => 21],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Tournament match result saved and ratings updated.');
+
+        $match->refresh();
+
+        $this->assertSame('confirmed', $match->status);
+        $this->assertSame('B', $match->winner_side);
+        $this->assertSame([
+            ['a' => 21, 'b' => 19],
+            ['a' => 18, 'b' => 21],
+            ['a' => 16, 'b' => 21],
+        ], $match->score);
+        $this->assertSame(4, RatingEvent::where('match_id', $match->id)->count());
+    }
+
+    public function test_tournament_match_result_requires_scores_that_match_winner(): void
+    {
+        $organizer = $this->player('Invalid Result Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Invalid Singles', 'singles');
+
+        $players = collect(range(1, 2))->map(fn ($i) => $this->player('Invalid Result Player '.$i));
+        foreach ($players as $index => $player) {
+            $this->entrant($tournament, $category, [$player], 'approved', $index + 1);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+        $match = $category->matches()->firstOrFail();
+
+        $this->actingAs($organizer)
+            ->patch(route('organizer.tournaments.matches.result', [$tournament, $match]), [
+                'played_at' => now()->toDateString(),
+                'winner_side' => 'B',
+                'games' => [
+                    ['a' => 21, 'b' => 18],
+                    ['a' => 21, 'b' => 19],
+                ],
+            ])
+            ->assertSessionHasErrors('result');
+
+        $this->assertSame('pending_confirmation', $match->fresh()->status);
+        $this->assertSame(0, RatingEvent::where('match_id', $match->id)->count());
     }
 
     public function test_public_tournament_pages_render(): void
