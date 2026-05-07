@@ -18,37 +18,23 @@ new class extends Component
 
 <nav x-data="{ open: false }" class="border-b border-blue-950/10 bg-white text-[#071a80]">
     <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-            <div class="flex">
-                <!-- Logo -->
-                <div class="shrink-0 flex items-center">
-                    <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate class="flex items-center">
-                        <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="116" height="29" class="h-7 w-[116px] object-contain" style="width: 116px; height: 29px;">
-                    </a>
-                </div>
+    <div class="mx-auto max-w-7xl px-5">
+        <div class="flex h-16 items-center justify-between">
+            <!-- Logo -->
+            <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate class="flex items-center">
+                <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 object-contain" style="width: 128px; height: 32px;">
+            </a>
 
-                <!-- Navigation Links -->
-                <div class="hidden items-center gap-8 text-sm font-extrabold uppercase md:ms-10 md:flex">
-                    @auth
-                        <a href="{{ route('dashboard') }}" wire:navigate class="{{ request()->routeIs('dashboard') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Dashboard') }}</a>
-                    @endauth
-                    <a href="{{ route('rankings') }}" wire:navigate class="{{ request()->routeIs('rankings') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Rankings') }}</a>
-                    <a href="{{ route('matches.index') }}" wire:navigate class="{{ request()->routeIs('matches.index') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Matches') }}</a>
-                    <a href="{{ route('clubs.index') }}" wire:navigate class="{{ request()->routeIs('clubs.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Clubs') }}</a>
-                    <a href="{{ route('tournaments.index') }}" wire:navigate class="{{ request()->routeIs('tournaments.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Tournaments') }}</a>
-                    @auth
-                        <a href="{{ route('matches.create') }}" wire:navigate class="{{ request()->routeIs('matches.create') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Submit Match') }}</a>
-                        <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Organizer') }}</a>
-                        @if (auth()->user()->hasRole('superadmin'))
-                            <a href="{{ route('admin.dashboard') }}" wire:navigate class="{{ request()->routeIs('admin.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Admin') }}</a>
-                        @endif
-                    @endauth
-                </div>
+            <!-- Navigation Links -->
+            <div class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
+                <a href="{{ route('rankings') }}" wire:navigate class="{{ request()->routeIs('rankings') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Rankings') }}</a>
+                <a href="{{ route('matches.index') }}" wire:navigate class="{{ request()->routeIs('matches.index') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Matches') }}</a>
+                <a href="{{ route('clubs.index') }}" wire:navigate class="{{ request()->routeIs('clubs.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Clubs') }}</a>
+                <a href="{{ route('tournaments.index') }}" wire:navigate class="{{ request()->routeIs('tournaments.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Tournaments') }}</a>
             </div>
 
             <!-- Settings Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
+            <div class="hidden items-center gap-5 text-sm font-bold uppercase md:flex">
                 @auth
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
@@ -77,10 +63,8 @@ new class extends Component
                     </x-slot>
                 </x-dropdown>
                 @else
-                    <div class="flex items-center gap-4 text-sm font-bold uppercase">
-                        <a href="{{ route('login') }}" wire:navigate class="text-[#071a80] hover:text-[#d6a31d]">Login</a>
-                        <a href="{{ route('register') }}" wire:navigate class="rounded-full bg-[#071a80] px-4 py-2 text-white">Register</a>
-                    </div>
+                    <a href="{{ route('login') }}" wire:navigate class="text-[#071a80] hover:text-[#d6a31d]">Login</a>
+                    <a href="{{ route('register') }}" wire:navigate class="rounded-full bg-[#071a80] px-4 py-2 text-white hover:bg-[#0b2bc1]">Register</a>
                 @endauth
             </div>
 
@@ -94,6 +78,19 @@ new class extends Component
             </div>
         </div>
     </div>
+
+    @auth
+        <div class="hidden border-t border-blue-950/10 bg-[#f8fafc] md:block">
+            <div class="mx-auto flex max-w-7xl items-center gap-6 px-5 py-3 text-xs font-black uppercase tracking-[.12em] text-blue-950/60">
+                <a href="{{ route('dashboard') }}" wire:navigate class="{{ request()->routeIs('dashboard') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Dashboard') }}</a>
+                <a href="{{ route('matches.create') }}" wire:navigate class="{{ request()->routeIs('matches.create') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Submit Match') }}</a>
+                <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.*') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Organizer') }}</a>
+                @if (auth()->user()->hasRole('superadmin'))
+                    <a href="{{ route('admin.dashboard') }}" wire:navigate class="{{ request()->routeIs('admin.*') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Admin') }}</a>
+                @endif
+            </div>
+        </div>
+    @endauth
 
     <!-- Responsive Navigation Menu -->
     <div x-show="open" x-transition.opacity class="fixed inset-0 z-50 bg-white sm:hidden" style="display: none;">
