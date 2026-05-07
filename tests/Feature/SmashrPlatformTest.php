@@ -145,7 +145,7 @@ class SmashrPlatformTest extends TestCase
 
         $this->get('/matches')
             ->assertOk()
-            ->assertSee('All matches')
+            ->assertSee('Submitted matches')
             ->assertSee('Index Winner')
             ->assertSee('Index Loser')
             ->assertSee('Game 1')
@@ -154,7 +154,7 @@ class SmashrPlatformTest extends TestCase
             ->assertSee('21 - 17');
     }
 
-    public function test_public_match_index_renders_pending_match_points_message(): void
+    public function test_public_match_index_hides_unsubmitted_match_placeholders(): void
     {
         [$winner, $loser] = [$this->player('Pending Winner'), $this->player('Pending Loser')];
 
@@ -171,9 +171,10 @@ class SmashrPlatformTest extends TestCase
 
         $this->get('/matches')
             ->assertOk()
-            ->assertSee('Pending Winner')
-            ->assertSee('Pending Loser')
-            ->assertSee('Match points not submitted yet');
+            ->assertSee('Submitted matches')
+            ->assertDontSee('Pending Winner')
+            ->assertDontSee('Pending Loser')
+            ->assertDontSee('Match points not submitted yet');
     }
 
     public function test_public_match_index_renders_doubles_match_points(): void

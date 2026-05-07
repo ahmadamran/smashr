@@ -3,9 +3,9 @@
         <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Competition feed</p>
-                <h1 class="text-3xl font-black text-[#071a80] sm:text-4xl">All matches</h1>
+                <h1 class="text-3xl font-black text-[#071a80] sm:text-4xl">Submitted matches</h1>
             </div>
-            <p class="max-w-xl text-sm font-bold text-blue-950/60">Browse confirmed, pending, disputed, and tournament-linked match activity across SmashR.</p>
+            <p class="max-w-xl text-sm font-bold text-blue-950/60">Browse matches with submitted score data. Generated tournament draw placeholders stay hidden until a result is submitted.</p>
         </div>
     </x-slot>
 

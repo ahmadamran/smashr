@@ -47,6 +47,7 @@ Route::get('rankings', function () {
 
 Route::get('matches', fn () => view('matches.index', [
     'matches' => MatchRecord::with('players.user.playerProfile', 'club', 'tournament')
+        ->whereJsonLength('score', '>', 0)
         ->when(request('format'), fn ($query, $format) => $query->where('format', $format))
         ->when(request('status'), fn ($query, $status) => $query->where('status', $status))
         ->when(request('club'), fn ($query, $club) => $query->whereHas('club', fn ($clubs) => $clubs->where('slug', $club)))
