@@ -28,8 +28,8 @@
         <header class="border-b border-white/10 bg-white text-[#071a80]">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
                 <a href="/" class="flex items-center gap-3">
-                    <span class="flex size-12 items-center justify-center rounded-full bg-[#071a80] text-sm font-black text-white">SM</span>
-                    <span class="text-xl font-black uppercase tracking-wide">Smashr</span>
+                    <img src="{{ asset('images/smashr-logo.jpg') }}" alt="SmashR logo" class="h-12 w-12 rounded-md bg-black object-cover">
+                    <span class="text-xl font-black uppercase tracking-wide">SmashR</span>
                 </a>
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
