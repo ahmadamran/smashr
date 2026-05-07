@@ -42,7 +42,9 @@
                 @php
                     $sideA = $match->players->where('side', 'A')->sortBy('position')->map(fn ($player) => $player->user->playerProfile?->display_name ?? $player->user->name)->join(' / ');
                     $sideB = $match->players->where('side', 'B')->sortBy('position')->map(fn ($player) => $player->user->playerProfile?->display_name ?? $player->user->name)->join(' / ');
-                    $score = collect($match->score ?? [])->map(fn ($game) => ($game['a'] ?? 0).'-'.($game['b'] ?? 0))->join(', ');
+                    $games = collect($match->score ?? [])
+                        ->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))
+                        ->values();
                 @endphp
                 <article class="rounded-lg bg-white p-6 shadow-lg">
                     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -59,6 +61,21 @@
                             </div>
                             <p class="mt-2 text-sm font-bold text-blue-950/70">{{ $sideA }}</p>
                         </div>
+                        <div class="rounded-md bg-[#071a80] p-4 text-white">
+                            <p class="text-xs font-black uppercase tracking-[.18em] text-[#d6a31d]">Match points</p>
+                            @if ($games->isNotEmpty())
+                                <div class="mt-3 grid gap-2 sm:grid-cols-3">
+                                    @foreach ($games as $index => $game)
+                                        <div class="rounded-md bg-white/10 px-3 py-2">
+                                            <p class="text-[11px] font-black uppercase text-white/60">Game {{ $index + 1 }}</p>
+                                            <p class="mt-1 text-2xl font-black">{{ (int) $game['a'] }} - {{ (int) $game['b'] }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="mt-2 text-sm font-bold text-white/70">Match points not submitted yet</p>
+                            @endif
+                        </div>
                         <div class="rounded-md border border-blue-950/10 p-4 {{ $match->winner_side === 'B' ? 'bg-blue-50' : '' }}">
                             <div class="flex items-center justify-between gap-3">
                                 <p class="font-black text-[#071a80]">Side B</p>
@@ -69,8 +86,7 @@
                             <p class="mt-2 text-sm font-bold text-blue-950/70">{{ $sideB }}</p>
                         </div>
                     </div>
-                    <div class="mt-5 grid gap-2 border-t border-blue-950/10 pt-4 text-sm text-blue-950/60 sm:grid-cols-3">
-                        <p><span class="font-black text-[#071a80]">Score:</span> {{ $score }}</p>
+                    <div class="mt-5 grid gap-2 border-t border-blue-950/10 pt-4 text-sm text-blue-950/60 sm:grid-cols-2">
                         <p><span class="font-black text-[#071a80]">Club:</span> {{ $match->club?->name ?? 'None' }}</p>
                         <p><span class="font-black text-[#071a80]">Tournament:</span> {{ $match->tournament?->name ?? 'None' }}</p>
                     </div>

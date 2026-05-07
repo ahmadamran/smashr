@@ -76,7 +76,7 @@ class DemoCompetitionSeeder extends Seeder
             'Sofia Chan', 'Amir Danish', 'Liyana Omar', 'Ethan Teo', 'Mira Yusof',
         ];
 
-        return collect($names)->map(function (string $name, int $index) use ($clubs) {
+        $demoPlayers = collect($names)->map(function (string $name, int $index) use ($clubs) {
             $email = 'demo.player'.str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT).'@smashr.test';
             $club = $clubs[$index % $clubs->count()];
 
@@ -107,6 +107,28 @@ class DemoCompetitionSeeder extends Seeder
 
             return $user->load('playerProfile', 'clubs');
         });
+
+        $testUser = User::where('email', 'test@example.com')->first();
+
+        if ($testUser) {
+            PlayerProfile::updateOrCreate(
+                ['user_id' => $testUser->id],
+                [
+                    'display_name' => 'Test User',
+                    'slug' => 'test-user',
+                    'country' => 'Malaysia',
+                    'state' => 'Kuala Lumpur',
+                    'city' => 'Kuala Lumpur',
+                    'preferred_hand' => 'right',
+                    'primary_format' => 'doubles',
+                ],
+            );
+            $testUser->clubs()->sync([$clubs->first()->id]);
+
+            return $demoPlayers->prepend($testUser->load('playerProfile', 'clubs'));
+        }
+
+        return $demoPlayers;
     }
 
     private function seedTournaments($clubs)

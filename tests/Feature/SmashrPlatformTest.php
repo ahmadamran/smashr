@@ -147,7 +147,65 @@ class SmashrPlatformTest extends TestCase
             ->assertOk()
             ->assertSee('All matches')
             ->assertSee('Index Winner')
-            ->assertSee('Index Loser');
+            ->assertSee('Index Loser')
+            ->assertSee('Game 1')
+            ->assertSee('21 - 14')
+            ->assertSee('Game 2')
+            ->assertSee('21 - 17');
+    }
+
+    public function test_public_match_index_renders_pending_match_points_message(): void
+    {
+        [$winner, $loser] = [$this->player('Pending Winner'), $this->player('Pending Loser')];
+
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $winner->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [],
+            'winner_side' => 'A',
+        ]);
+        $match->players()->create(['user_id' => $winner->id, 'side' => 'A', 'position' => 1]);
+        $match->players()->create(['user_id' => $loser->id, 'side' => 'B', 'position' => 1]);
+
+        $this->get('/matches')
+            ->assertOk()
+            ->assertSee('Pending Winner')
+            ->assertSee('Pending Loser')
+            ->assertSee('Match points not submitted yet');
+    }
+
+    public function test_public_match_index_renders_doubles_match_points(): void
+    {
+        [$a1, $a2, $b1, $b2] = [
+            $this->player('Doubles Index A One'),
+            $this->player('Doubles Index A Two'),
+            $this->player('Doubles Index B One'),
+            $this->player('Doubles Index B Two'),
+        ];
+
+        $match = MatchRecord::create([
+            'format' => 'doubles',
+            'submitted_by' => $a1->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 19], ['a' => 21, 'b' => 18]],
+            'winner_side' => 'A',
+        ]);
+
+        foreach ([[$a1, 'A', 1], [$a2, 'A', 2], [$b1, 'B', 1], [$b2, 'B', 2]] as [$user, $side, $position]) {
+            $match->players()->create(['user_id' => $user->id, 'side' => $side, 'position' => $position]);
+        }
+
+        $this->get('/matches?format=doubles')
+            ->assertOk()
+            ->assertSee('Doubles Index A One / Doubles Index A Two')
+            ->assertSee('Doubles Index B One / Doubles Index B Two')
+            ->assertSee('Game 1')
+            ->assertSee('21 - 19')
+            ->assertSee('Game 2')
+            ->assertSee('21 - 18');
     }
 
     private function player(string $name): User

@@ -7,7 +7,11 @@
         ->whereHas('players', fn ($query) => $query->where('user_id', auth()->id())->whereNull('confirmed_at'))
         ->latest()
         ->get();
-    $recentEvents = RatingEvent::where('user_id', auth()->id())->latest()->limit(6)->get();
+    $recentEvents = RatingEvent::with('match.players.user.playerProfile', 'algorithm')
+        ->where('user_id', auth()->id())
+        ->latest()
+        ->limit(6)
+        ->get();
 @endphp
 
 <x-app-layout>
@@ -68,12 +72,28 @@
                 <h2 class="text-2xl font-black text-[#071a80]">Rating history</h2>
                 <div class="mt-5 space-y-4">
                     @forelse ($recentEvents as $event)
-                        <div class="flex items-center justify-between border-b border-blue-950/10 pb-3">
-                            <div>
-                                <p class="font-bold">{{ ucfirst($event->format) }}</p>
-                                <p class="text-sm text-blue-950/60">{{ $event->created_at->diffForHumans() }}</p>
+                        @php
+                            $match = $event->match;
+                            $playerSide = $match?->players->firstWhere('user_id', auth()->id())?->side;
+                            $opponents = $match?->players
+                                ->where('side', '!=', $playerSide)
+                                ->map(fn ($player) => $player->user->playerProfile?->display_name ?? $player->user->name)
+                                ->join(' / ');
+                            $score = collect($match?->score ?? [])->map(fn ($game) => ($game['a'] ?? 0).'-'.($game['b'] ?? 0))->join(', ');
+                        @endphp
+                        <div class="border-b border-blue-950/10 pb-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <p class="font-black text-[#071a80]">{{ ucfirst($event->format) }} vs {{ $opponents ?: 'TBA' }}</p>
+                                    <p class="text-sm text-blue-950/60">{{ $match?->played_at?->format('M j, Y') }} | Score {{ $score ?: 'not set' }}</p>
+                                </div>
+                                <p class="font-black {{ $event->delta >= 0 ? 'text-green-600' : 'text-red-600' }}">{{ $event->delta >= 0 ? '+' : '' }}{{ $event->delta }}</p>
                             </div>
-                            <p class="font-black {{ $event->delta >= 0 ? 'text-green-600' : 'text-red-600' }}">{{ $event->delta >= 0 ? '+' : '' }}{{ $event->delta }}</p>
+                            <div class="mt-3 grid gap-2 rounded-md bg-[#f3f6fb] p-3 text-sm font-bold text-blue-950/70 sm:grid-cols-3">
+                                <p>Before <span class="block text-lg font-black text-[#071a80]">{{ $event->rating_before }}</span></p>
+                                <p>After <span class="block text-lg font-black text-[#071a80]">{{ $event->rating_after }}</span></p>
+                                <p>Algorithm <span class="block text-lg font-black text-[#071a80]">{{ $event->algorithm?->version ?? 'v1' }}</span></p>
+                            </div>
                         </div>
                     @empty
                         <p class="text-blue-950/60">Confirmed matches will create rating events here.</p>
