@@ -104,16 +104,24 @@ Route::get('tournaments/{tournament:slug}/draws/{category:slug}', function (Tour
     ]);
 })->scopeBindings()->name('tournaments.draw');
 
-Route::get('tournaments/{tournament:slug}/matches', fn (Tournament $tournament) => view('tournaments.matches', [
-    'tournament' => $tournament->load('club', 'organizer'),
-    'matches' => $tournament->matches()
+Route::get('tournaments/{tournament:slug}/matches', function (Tournament $tournament) {
+    $matches = $tournament->matches()
         ->with('players.user.playerProfile', 'tournamentCategory')
         ->when(request('date'), fn ($query, $date) => $query->whereDate('played_at', $date))
+        ->orderByRaw("case when live_status = 'live' then 0 else 1 end")
+        ->orderBy('scheduled_at')
         ->orderBy('played_at')
         ->orderBy('tournament_category_id')
-        ->get()
-        ->groupBy(fn (MatchRecord $match) => $match->played_at->toDateString()),
-]))->name('tournaments.matches');
+        ->get();
+
+    return view('tournaments.matches', [
+        'tournament' => $tournament->load('club', 'organizer'),
+        'liveMatches' => $matches->where('live_status', 'live')->values(),
+        'matches' => $matches
+            ->reject(fn (MatchRecord $match) => $match->live_status === 'live')
+            ->groupBy(fn (MatchRecord $match) => $match->played_at->toDateString()),
+    ]);
+})->name('tournaments.matches');
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
@@ -319,7 +327,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('{tournament:slug}/draws/{category:slug}/generate', function (Tournament $tournament, TournamentCategory $category, TournamentDrawService $draws) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
             abort_unless($category->tournament_id === $tournament->id, 404);
-            $created = $draws->generate($category);
+            $schedule = request()->validate([
+                'courts_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'court_label_prefix' => ['nullable', 'string', 'max:40'],
+                'first_court_number' => ['nullable', 'integer', 'min:1', 'max:99'],
+                'schedule_start_time' => ['nullable', 'date_format:H:i'],
+                'match_duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240'],
+            ]);
+            $created = $draws->generate($category, $schedule);
 
             return back()->with('status', "{$created} draw matches generated.");
         })->name('draws.generate');
@@ -337,7 +352,7 @@ Route::middleware(['auth'])->group(function () {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
         }) ?? view('organizer.tournaments.matches', [
             'tournament' => $tournament->load('categories'),
-            'matches' => $tournament->matches()->with('players.user.playerProfile', 'tournamentCategory')->latest('played_at')->paginate(20),
+            'matches' => $tournament->matches()->with('players.user.playerProfile', 'tournamentCategory')->orderBy('scheduled_at')->orderBy('played_at')->paginate(20),
         ]))->name('matches');
 
         Route::patch('{tournament:slug}/matches/{match}/result', function (Tournament $tournament, MatchRecord $match, RatingService $ratings, MatchScoreService $scores) {

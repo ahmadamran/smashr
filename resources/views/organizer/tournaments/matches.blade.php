@@ -21,7 +21,20 @@
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">{{ $match->tournamentCategory?->name ?? 'Tournament match' }} | {{ str_replace('_', ' ', $match->status) }}</p>
-                            <h2 class="mt-2 text-xl font-black text-[#071a80]">{{ $match->played_at->format('M j, Y') }}</h2>
+                            <h2 class="mt-2 text-xl font-black text-[#071a80]">{{ ($match->scheduled_at ?? $match->played_at)->format('M j, Y') }}</h2>
+                            @if ($match->scheduled_at || $match->court_label)
+                                <div class="mt-2 flex flex-wrap gap-2 text-xs font-black uppercase text-[#071a80]">
+                                    @if ($match->scheduled_at)
+                                        <span class="rounded-full bg-[#f3f6fb] px-3 py-1">{{ $match->scheduled_at->format('g:i A') }}</span>
+                                    @endif
+                                    @if ($match->court_label)
+                                        <span class="rounded-full bg-[#f3f6fb] px-3 py-1">{{ $match->court_label }}</span>
+                                    @endif
+                                    @if ($match->estimated_duration_minutes)
+                                        <span class="rounded-full bg-[#f3f6fb] px-3 py-1">{{ $match->estimated_duration_minutes }} min</span>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             @if ($match->score_sheet_token)

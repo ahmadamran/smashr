@@ -12,7 +12,7 @@ use Modules\Clubs\Models\Club;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\Tournament;
 
-#[Fillable(['format', 'submitted_by', 'club_id', 'tournament_id', 'tournament_category_id', 'status', 'played_at', 'score', 'winner_side', 'draw_round', 'draw_group', 'draw_position', 'score_sheet_token', 'live_status', 'live_score', 'score_submitted_at'])]
+#[Fillable(['format', 'submitted_by', 'club_id', 'tournament_id', 'tournament_category_id', 'status', 'played_at', 'scheduled_at', 'court_label', 'estimated_duration_minutes', 'score', 'winner_side', 'draw_round', 'draw_group', 'draw_position', 'score_sheet_token', 'live_status', 'live_score', 'score_submitted_at'])]
 class MatchRecord extends Model
 {
     protected $table = 'matches';
@@ -21,6 +21,7 @@ class MatchRecord extends Model
     {
         return [
             'played_at' => 'date',
+            'scheduled_at' => 'datetime',
             'score' => 'array',
             'live_score' => 'array',
             'score_submitted_at' => 'datetime',

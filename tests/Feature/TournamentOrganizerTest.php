@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Modules\Matches\Models\MatchRecord;
 use Modules\Ratings\Models\RatingEvent;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Tournaments\Models\Tournament;
@@ -145,9 +146,18 @@ class TournamentOrganizerTest extends TestCase
         }
 
         $this->actingAs($organizer)
-            ->post(route('organizer.tournaments.draws.generate', [$tournament, $knockout]))
+            ->post(route('organizer.tournaments.draws.generate', [$tournament, $knockout]), [
+                'courts_count' => 2,
+                'court_label_prefix' => 'Arena',
+                'first_court_number' => 3,
+                'schedule_start_time' => '10:30',
+                'match_duration_minutes' => 25,
+            ])
             ->assertRedirect();
         $this->assertSame(2, $knockout->matches()->count());
+        $this->assertSame(['Arena 3', 'Arena 4'], $knockout->matches()->orderBy('draw_position')->pluck('court_label')->all());
+        $this->assertSame(['10:30', '10:30'], $knockout->matches()->orderBy('draw_position')->get()->map(fn ($match) => $match->scheduled_at->format('H:i'))->all());
+        $this->assertSame([25, 25], $knockout->matches()->orderBy('draw_position')->pluck('estimated_duration_minutes')->all());
 
         $this->actingAs($organizer)
             ->post(route('organizer.tournaments.draws.generate', [$tournament, $roundRobin]))
@@ -274,6 +284,41 @@ class TournamentOrganizerTest extends TestCase
             ['a' => 21, 'b' => 18],
         ], $match->score);
         $this->assertSame(2, RatingEvent::where('match_id', $match->id)->count());
+    }
+
+    public function test_public_tournament_matches_show_live_matches_first(): void
+    {
+        $organizer = $this->player('Live Priority Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Priority Singles', 'singles');
+
+        foreach (range(1, 4) as $index) {
+            $this->entrant($tournament, $category, [$this->player('Live Priority Player '.$index)], 'approved', $index);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+
+        $matches = MatchRecord::where('tournament_category_id', $category->id)
+            ->orderBy('draw_position')
+            ->get();
+
+        $matches->last()->forceFill([
+            'live_status' => 'live',
+            'live_score' => [
+                'current_game' => 1,
+                'current' => ['a' => 3, 'b' => 2],
+                'games' => [],
+                'history' => [],
+            ],
+        ])->save();
+
+        $this->get(route('tournaments.matches', $tournament))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Live matches',
+                'A: Live Priority Player 3',
+                'A: Live Priority Player 1',
+            ]);
     }
 
     public function test_draw_generation_uses_category_from_the_selected_tournament(): void

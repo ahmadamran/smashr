@@ -17,10 +17,33 @@
                             <h2 class="text-2xl font-black text-[#071a80]">{{ $category->name }}</h2>
                             <p class="mt-1 text-sm font-bold text-blue-950/50">{{ $approvedEntrants->count() }} approved entrants | {{ $category->matches->count() }} matches</p>
                         </div>
-                        <form method="POST" action="{{ route('organizer.tournaments.draws.generate', [$tournament, $category]) }}">@csrf
-                            <button @disabled($approvedEntrants->count() < 2) class="rounded-md bg-[#071a80] px-4 py-2 text-xs font-black uppercase text-white disabled:cursor-not-allowed disabled:bg-blue-950/30">Generate draw</button>
-                        </form>
                     </div>
+                    <form method="POST" action="{{ route('organizer.tournaments.draws.generate', [$tournament, $category]) }}" class="mt-5 rounded-md border border-blue-950/10 bg-[#f8fafc] p-4">
+                        @csrf
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <label class="text-xs font-black uppercase text-[#071a80]">
+                                Courts
+                                <input type="number" name="courts_count" min="1" max="50" value="{{ old('courts_count', 2) }}" class="mt-1 w-full rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                            </label>
+                            <label class="text-xs font-black uppercase text-[#071a80]">
+                                Court label
+                                <input type="text" name="court_label_prefix" value="{{ old('court_label_prefix', 'Court') }}" placeholder="Court" class="mt-1 w-full rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                            </label>
+                            <label class="text-xs font-black uppercase text-[#071a80]">
+                                First court number
+                                <input type="number" name="first_court_number" min="1" max="99" value="{{ old('first_court_number', 1) }}" class="mt-1 w-full rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                            </label>
+                            <label class="text-xs font-black uppercase text-[#071a80]">
+                                Start time
+                                <input type="time" name="schedule_start_time" value="{{ old('schedule_start_time', '09:00') }}" class="mt-1 w-full rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                            </label>
+                            <label class="text-xs font-black uppercase text-[#071a80] sm:col-span-2">
+                                Match estimate minutes
+                                <input type="number" name="match_duration_minutes" min="5" max="240" step="5" value="{{ old('match_duration_minutes', 30) }}" class="mt-1 w-full rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                            </label>
+                        </div>
+                        <button @disabled($approvedEntrants->count() < 2) class="mt-4 w-full rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white disabled:cursor-not-allowed disabled:bg-blue-950/30">Generate draw and schedule</button>
+                    </form>
                     <div class="mt-5 divide-y divide-blue-950/10">
                         @foreach ($approvedEntrants->sortBy('seed') as $entrant)
                             <p class="py-2 text-sm font-bold text-blue-950/70">{{ $entrant->seed ? '#'.$entrant->seed.' ' : '' }}{{ $entrant->displayName() }}</p>
