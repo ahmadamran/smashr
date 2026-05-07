@@ -41,8 +41,8 @@
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
                     <a href="#matches" class="hover:text-[#d6a31d]">Matches</a>
-                    <a href="#clubs" class="hover:text-[#d6a31d]">Clubs</a>
-                    <a href="#tournaments" class="hover:text-[#d6a31d]">Tournaments</a>
+                    <a href="{{ route('clubs.index') }}" class="hover:text-[#d6a31d]">Clubs</a>
+                    <a href="{{ route('tournaments.index') }}" class="hover:text-[#d6a31d]">Tournaments</a>
                 </nav>
                 <div class="flex items-center gap-4 text-sm font-bold uppercase">
                     @auth
@@ -127,7 +127,7 @@
                             <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Built for clubs</p>
                             <h2 class="text-4xl font-black">Club directory</h2>
                         </div>
-                        <p class="max-w-xl text-blue-950/60">Find badminton communities, compare active members, and open each club leaderboard.</p>
+                        <a href="{{ route('clubs.index') }}" class="w-fit rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white">View all clubs</a>
                     </div>
                     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                         @forelse ($featuredClubs as $club)
@@ -157,7 +157,7 @@
                             <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Tournament calendar</p>
                             <h2 class="text-4xl font-black">Upcoming and recent tournaments</h2>
                         </div>
-                        <a href="{{ route('register') }}" class="w-fit rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white">Join SmashR</a>
+                        <a href="{{ route('tournaments.index') }}" class="w-fit rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white">View all tournaments</a>
                     </div>
                     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                         @forelse ($featuredTournaments as $tournament)

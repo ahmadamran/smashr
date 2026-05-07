@@ -44,9 +44,24 @@ Route::get('players/{playerProfile:slug}', fn (PlayerProfile $playerProfile) => 
     'player' => $playerProfile->load('user.clubs'),
 ]))->name('players.show');
 
+Route::get('clubs', fn () => view('clubs.index', [
+    'clubs' => Club::withCount('members')
+        ->orderByDesc('members_count')
+        ->orderBy('name')
+        ->paginate(12),
+]))->name('clubs.index');
+
 Route::get('clubs/{club:slug}', fn (Club $club) => view('clubs.show', [
     'club' => $club->load('members.playerProfile'),
 ]))->name('clubs.show');
+
+Route::get('tournaments', fn () => view('tournaments.index', [
+    'tournaments' => Tournament::with('club')
+        ->withCount('matches')
+        ->orderByRaw("case status when 'published' then 0 when 'draft' then 1 else 2 end")
+        ->orderBy('starts_at')
+        ->paginate(12),
+]))->name('tournaments.index');
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
