@@ -1,11 +1,10 @@
-<div {{ $attributes->merge(['class' => 'flex items-center gap-3']) }}>
+<div {{ $attributes->merge(['class' => 'flex items-center']) }}>
     <img
-        src="{{ asset('images/smashr-logo.jpg') }}"
-        alt="SmashR logo"
-        width="36"
-        height="36"
-        class="h-9 w-9 rounded bg-black object-cover"
-        style="width: 36px; height: 36px;"
+        src="{{ asset('images/smashr-wordmark.jpg') }}"
+        alt="SmashR"
+        width="128"
+        height="32"
+        class="h-8 w-32 bg-black object-contain"
+        style="width: 128px; height: 32px;"
     >
-    <span class="text-xl font-black uppercase tracking-wide text-[#071a80]">SmashR</span>
 </div>

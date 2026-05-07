@@ -23,9 +23,8 @@ new class extends Component
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate class="flex items-center gap-3">
-                        <img src="{{ asset('images/smashr-logo.jpg') }}" alt="SmashR logo" width="32" height="32" class="h-8 w-8 rounded bg-black object-cover" style="width: 32px; height: 32px;">
-                        <span class="hidden text-base font-black uppercase tracking-wide text-[#071a80] md:inline">SmashR</span>
+                    <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" wire:navigate class="flex items-center">
+                        <img src="{{ asset('images/smashr-wordmark.jpg') }}" alt="SmashR" width="116" height="29" class="h-7 w-[116px] bg-black object-contain" style="width: 116px; height: 29px;">
                     </a>
                 </div>
 

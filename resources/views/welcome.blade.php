@@ -27,9 +27,8 @@
     <body class="bg-[#071a80] font-sans text-white antialiased">
         <header class="border-b border-white/10 bg-white text-[#071a80]">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-                <a href="/" class="flex items-center gap-3">
-                    <img src="{{ asset('images/smashr-logo.jpg') }}" alt="SmashR logo" width="36" height="36" class="h-9 w-9 rounded bg-black object-cover" style="width: 36px; height: 36px;">
-                    <span class="text-lg font-black uppercase tracking-wide">SmashR</span>
+                <a href="/" class="flex items-center">
+                    <img src="{{ asset('images/smashr-wordmark.jpg') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 bg-black object-contain" style="width: 128px; height: 32px;">
                 </a>
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
