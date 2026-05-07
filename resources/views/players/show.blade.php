@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
                 <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Player profile</p>
-                <h1 class="text-4xl font-black text-[#071a80]">{{ $player->display_name }}</h1>
+                <h1 class="break-words text-3xl font-black text-[#071a80] sm:text-4xl">{{ $player->display_name }}</h1>
             </div>
             <p class="font-bold text-blue-950/60">{{ collect([$player->city, $player->state, $player->country])->filter()->join(', ') }}</p>
         </div>
