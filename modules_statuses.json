@@ -1,0 +1,7 @@
+{
+    "Players": true,
+    "Matches": true,
+    "Ratings": true,
+    "Clubs": true,
+    "Tournaments": true
+}

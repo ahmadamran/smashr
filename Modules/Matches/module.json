@@ -1,0 +1,11 @@
+{
+    "name": "Matches",
+    "alias": "matches",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Matches\\Providers\\MatchesServiceProvider"
+    ],
+    "files": []
+}

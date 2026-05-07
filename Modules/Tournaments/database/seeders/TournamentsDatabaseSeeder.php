@@ -1,0 +1,16 @@
+<?php
+
+namespace Modules\Tournaments\Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class TournamentsDatabaseSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // $this->call([]);
+    }
+}

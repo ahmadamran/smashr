@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/matches",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Matches\\": "app/",
+            "Modules\\Matches\\Database\\Factories\\": "database/factories/",
+            "Modules\\Matches\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Matches\\Tests\\": "tests/"
+        }
+    }
+}
