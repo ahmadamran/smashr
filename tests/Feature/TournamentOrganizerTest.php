@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use Modules\Ratings\Models\RatingEvent;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Tournaments\Models\Tournament;
@@ -152,6 +153,121 @@ class TournamentOrganizerTest extends TestCase
             ->post(route('organizer.tournaments.draws.generate', [$tournament, $roundRobin]))
             ->assertRedirect();
         $this->assertSame(6, $roundRobin->matches()->count());
+        $this->assertNotNull($roundRobin->matches()->first()?->score_sheet_token);
+    }
+
+    public function test_tournament_scoresheet_link_opens_by_secret_token(): void
+    {
+        $organizer = $this->player('Sheet Link Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Sheet Singles', 'singles');
+
+        foreach (collect(range(1, 2))->map(fn ($i) => $this->player('Sheet Link Player '.$i)) as $index => $player) {
+            $this->entrant($tournament, $category, [$player], 'approved', $index + 1);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+        $match = $category->matches()->firstOrFail();
+
+        $this->assertNotEmpty($match->score_sheet_token);
+        $this->get(route('scoresheets.show', $match->score_sheet_token))->assertOk()->assertSee('Umpire scoresheet');
+        $this->get('/s/notreal')->assertNotFound();
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.matches', $tournament))
+            ->assertOk()
+            ->assertSee('Score sheet');
+    }
+
+    public function test_scoresheet_tracks_live_points_and_submits_for_organizer_review(): void
+    {
+        $organizer = $this->player('Live Sheet Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Live Singles', 'singles');
+
+        foreach (collect(range(1, 2))->map(fn ($i) => $this->player('Live Sheet Player '.$i)) as $index => $player) {
+            $this->entrant($tournament, $category, [$player], 'approved', $index + 1);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+        $match = $category->matches()->firstOrFail();
+
+        $component = Livewire::test('scoresheets.show', ['token' => $match->score_sheet_token])
+            ->call('addPoint', 'A')
+            ->call('addPoint', 'B')
+            ->call('undo');
+
+        $this->assertSame(['a' => 1, 'b' => 0], $match->fresh()->live_score['current']);
+        $this->get(route('tournaments.matches', $tournament))->assertOk()->assertSee('Live')->assertSee('A 1 - 0 B');
+
+        $this->scoreGame($component, 20, 19);
+        $component->call('endGame');
+        $this->scoreGame($component, 18, 21);
+        $component->call('endGame');
+        $this->scoreGame($component, 21, 15);
+        $component->call('submitScore')->assertHasNoErrors();
+
+        $match->refresh();
+
+        $this->assertSame('submitted', $match->live_status);
+        $this->assertSame('pending_confirmation', $match->status);
+        $this->assertSame([], $match->score);
+        $this->assertSame(0, RatingEvent::where('match_id', $match->id)->count());
+        $this->assertSame([
+            ['a' => 21, 'b' => 19],
+            ['a' => 18, 'b' => 21],
+            ['a' => 21, 'b' => 15],
+        ], $match->live_score['games']);
+    }
+
+    public function test_organizer_approves_submitted_scoresheet_before_ratings_update(): void
+    {
+        $organizer = $this->player('Approve Sheet Owner');
+        $other = $this->player('Approve Sheet Other');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Approve Singles', 'singles');
+
+        foreach (collect(range(1, 2))->map(fn ($i) => $this->player('Approve Sheet Player '.$i)) as $index => $player) {
+            $this->entrant($tournament, $category, [$player], 'approved', $index + 1);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+        $match = $category->matches()->firstOrFail();
+        $match->forceFill([
+            'live_status' => 'submitted',
+            'live_score' => [
+                'current_game' => 4,
+                'current' => ['a' => 0, 'b' => 0],
+                'games' => [
+                    ['a' => 21, 'b' => 17],
+                    ['a' => 17, 'b' => 21],
+                    ['a' => 21, 'b' => 18],
+                ],
+                'history' => [],
+            ],
+            'score_submitted_at' => now(),
+        ])->save();
+
+        $this->actingAs($other)
+            ->patch(route('organizer.tournaments.matches.approve-live-score', [$tournament, $match]))
+            ->assertForbidden();
+
+        $this->actingAs($organizer)
+            ->patch(route('organizer.tournaments.matches.approve-live-score', [$tournament, $match]))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Live scoresheet approved and ratings updated.');
+
+        $match->refresh();
+
+        $this->assertSame('confirmed', $match->status);
+        $this->assertSame('approved', $match->live_status);
+        $this->assertSame('A', $match->winner_side);
+        $this->assertSame([
+            ['a' => 21, 'b' => 17],
+            ['a' => 17, 'b' => 21],
+            ['a' => 21, 'b' => 18],
+        ], $match->score);
+        $this->assertSame(2, RatingEvent::where('match_id', $match->id)->count());
     }
 
     public function test_draw_generation_uses_category_from_the_selected_tournament(): void
@@ -360,5 +476,16 @@ class TournamentOrganizerTest extends TestCase
         ]);
 
         return $user->load('playerProfile');
+    }
+
+    private function scoreGame($component, int $sideA, int $sideB): void
+    {
+        for ($i = 0; $i < $sideA; $i++) {
+            $component->call('addPoint', 'A');
+        }
+
+        for ($i = 0; $i < $sideB; $i++) {
+            $component->call('addPoint', 'B');
+        }
     }
 }

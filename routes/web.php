@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use App\Models\User;
 use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
+use Modules\Matches\Services\MatchScoreService;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Ratings\Models\RatingAlgorithm;
 use Modules\Ratings\Services\RatingRecalculationService;
@@ -19,6 +20,8 @@ use Spatie\Permission\Models\Role;
 use Livewire\Volt\Volt;
 
 Route::view('/', 'welcome');
+
+Volt::route('s/{token}', 'scoresheets.show')->name('scoresheets.show');
 
 Route::get('rankings', function () {
     $format = request('format', 'singles') === 'doubles' ? 'doubles' : 'singles';
@@ -337,7 +340,7 @@ Route::middleware(['auth'])->group(function () {
             'matches' => $tournament->matches()->with('players.user.playerProfile', 'tournamentCategory')->latest('played_at')->paginate(20),
         ]))->name('matches');
 
-        Route::patch('{tournament:slug}/matches/{match}/result', function (Tournament $tournament, MatchRecord $match, RatingService $ratings) {
+        Route::patch('{tournament:slug}/matches/{match}/result', function (Tournament $tournament, MatchRecord $match, RatingService $ratings, MatchScoreService $scores) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
             abort_unless($match->tournament_id === $tournament->id, 404);
 
@@ -355,44 +358,37 @@ Route::middleware(['auth'])->group(function () {
                 'games.*.b' => ['nullable', 'integer', 'min:0', 'max:30'],
             ]);
 
-            $score = collect($data['games'])
-                ->filter(fn (array $game) => filled($game['a'] ?? null) && filled($game['b'] ?? null))
-                ->map(fn (array $game) => ['a' => (int) $game['a'], 'b' => (int) $game['b']])
-                ->values();
-
-            if ($score->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'result' => 'Enter at least one game score before submitting the result.',
-                ]);
-            }
-
-            if ($score->contains(fn (array $game) => $game['a'] === $game['b'])) {
-                throw ValidationException::withMessages([
-                    'result' => 'A game score cannot be tied.',
-                ]);
-            }
-
-            $sideAWins = $score->filter(fn (array $game) => $game['a'] > $game['b'])->count();
-            $sideBWins = $score->count() - $sideAWins;
-            $actualWinner = $sideAWins > $sideBWins ? 'A' : 'B';
-
-            if ($sideAWins === $sideBWins || $actualWinner !== $data['winner_side']) {
-                throw ValidationException::withMessages([
-                    'result' => 'Winner side must match the submitted game scores.',
-                ]);
-            }
+            $result = $scores->validateScoreRows($data['games'], $data['winner_side']);
 
             $match->forceFill([
                 'played_at' => $data['played_at'],
-                'score' => $score->all(),
-                'winner_side' => $data['winner_side'],
+                'score' => $result['score'],
+                'winner_side' => $result['winner_side'],
                 'status' => 'pending_confirmation',
+                'live_status' => 'approved',
+                'live_score' => [
+                    'current_game' => count($result['score']) + 1,
+                    'current' => ['a' => 0, 'b' => 0],
+                    'games' => $result['score'],
+                    'history' => [],
+                ],
             ])->save();
 
             $ratings->confirmAsAdmin($match->fresh());
 
             return back()->with('status', 'Tournament match result saved and ratings updated.');
         })->name('matches.result');
+
+        Route::patch('{tournament:slug}/matches/{match}/approve-live-score', function (Tournament $tournament, MatchRecord $match, RatingService $ratings, MatchScoreService $scores) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            abort_unless($match->tournament_id === $tournament->id, 404);
+            abort_unless($match->live_status === 'submitted', 404);
+
+            $scores->approveSubmittedScore($match);
+            $ratings->confirmAsAdmin($match->fresh());
+
+            return back()->with('status', 'Live scoresheet approved and ratings updated.');
+        })->name('matches.approve-live-score');
     });
 });
 

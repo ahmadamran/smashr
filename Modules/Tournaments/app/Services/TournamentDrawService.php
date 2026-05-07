@@ -5,11 +5,16 @@ namespace Modules\Tournaments\Services;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Modules\Matches\Models\MatchRecord;
+use Modules\Matches\Services\MatchScoreService;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
 
 class TournamentDrawService
 {
+    public function __construct(private readonly MatchScoreService $scores)
+    {
+    }
+
     public function generate(TournamentCategory $category): int
     {
         $category->load('tournament', 'approvedEntrants.players.user.playerProfile');
@@ -92,7 +97,11 @@ class TournamentDrawService
             'draw_round' => $round,
             'draw_group' => $group,
             'draw_position' => $position,
+            'live_status' => 'scheduled',
+            'live_score' => $this->scores->initialLiveScore(),
         ]);
+
+        $this->scores->ensureScoreSheetToken($match);
 
         $this->attachEntrantPlayers($match, $sideA, 'A');
         $this->attachEntrantPlayers($match, $sideB, 'B');
