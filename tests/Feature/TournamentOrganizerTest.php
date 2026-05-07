@@ -202,6 +202,12 @@ class TournamentOrganizerTest extends TestCase
 
         $this->scoreGame($component, 20, 19);
         $component->call('endGame');
+        $this->get(route('tournaments.matches', $tournament))
+            ->assertOk()
+            ->assertSee('Current game 2')
+            ->assertSee('Completed game 1')
+            ->assertSee('21 - 19');
+
         $this->scoreGame($component, 18, 21);
         $component->call('endGame');
         $this->scoreGame($component, 21, 15);

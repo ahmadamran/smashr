@@ -51,6 +51,16 @@
                                         <p class="text-xs font-black uppercase tracking-[.18em] text-[#d6a31d]">Current game {{ $liveScore['current_game'] ?? 1 }}</p>
                                         <p class="mt-2 text-3xl font-black">A {{ (int) ($current['a'] ?? 0) }} - {{ (int) ($current['b'] ?? 0) }} B</p>
                                     </div>
+                                    @if ($liveGames->isNotEmpty())
+                                        <div class="mt-3 grid gap-2 sm:grid-cols-3">
+                                            @foreach ($liveGames as $index => $game)
+                                                <div class="rounded-md bg-[#f3f6fb] px-3 py-2">
+                                                    <p class="text-[11px] font-black uppercase text-blue-950/45">Completed game {{ $index + 1 }}</p>
+                                                    <p class="mt-1 text-xl font-black text-[#071a80]">{{ (int) $game['a'] }} - {{ (int) $game['b'] }}</p>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 @elseif ($displayGames->isNotEmpty())
                                     <div class="mt-4 grid gap-2 sm:grid-cols-3">
                                         @foreach ($displayGames as $index => $game)
