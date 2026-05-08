@@ -146,7 +146,8 @@ class TournamentOrganizerTest extends TestCase
         }
 
         $this->actingAs($organizer)
-            ->post(route('organizer.tournaments.draws.generate', [$tournament, $knockout]), [
+            ->post(route('organizer.tournaments.draws.generate.tournament', $tournament), [
+                'category_ids' => [$knockout->id, $roundRobin->id],
                 'courts_count' => 2,
                 'court_label_prefix' => 'Arena',
                 'first_court_number' => 3,
@@ -158,11 +159,8 @@ class TournamentOrganizerTest extends TestCase
         $this->assertSame(['Arena 3', 'Arena 4'], $knockout->matches()->orderBy('draw_position')->pluck('court_label')->all());
         $this->assertSame(['10:30', '10:30'], $knockout->matches()->orderBy('draw_position')->get()->map(fn ($match) => $match->scheduled_at->format('H:i'))->all());
         $this->assertSame([25, 25], $knockout->matches()->orderBy('draw_position')->pluck('estimated_duration_minutes')->all());
-
-        $this->actingAs($organizer)
-            ->post(route('organizer.tournaments.draws.generate', [$tournament, $roundRobin]))
-            ->assertRedirect();
         $this->assertSame(6, $roundRobin->matches()->count());
+        $this->assertSame(['10:55', '10:55'], $roundRobin->matches()->orderBy('draw_position')->limit(2)->get()->map(fn ($match) => $match->scheduled_at->format('H:i'))->all());
         $this->assertNotNull($roundRobin->matches()->first()?->score_sheet_token);
     }
 
@@ -455,11 +453,18 @@ class TournamentOrganizerTest extends TestCase
         $category = $this->category($tournament, 'Open Singles', 'singles');
         $entrantA = $this->entrant($tournament, $category, [$this->player('Public A')], 'approved');
         $entrantB = $this->entrant($tournament, $category, [$this->player('Public B')], 'approved');
+        $this->entrant($tournament, $category, [$this->player('Public C')], 'approved', 3);
+        $this->entrant($tournament, $category, [$this->player('Public D')], 'approved', 4);
 
         $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
 
         $this->get(route('tournaments.show', $tournament))->assertOk()->assertSee('Open Singles')->assertSee($entrantA->players->first()->user->name);
-        $this->get(route('tournaments.draw', [$tournament, $category]))->assertOk()->assertSee('Open Singles draw');
+        $this->get(route('tournaments.draw', [$tournament, $category]))
+            ->assertOk()
+            ->assertSee('Open Singles draw')
+            ->assertSee('Semifinals')
+            ->assertSee('Final')
+            ->assertSee('Winner Match 1');
         $this->get(route('tournaments.matches', $tournament))->assertOk()->assertSee('Tournament matches')->assertSee('Public A');
     }
 

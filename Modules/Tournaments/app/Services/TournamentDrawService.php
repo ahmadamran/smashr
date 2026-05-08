@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
+use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
 
@@ -18,8 +19,47 @@ class TournamentDrawService
 
     public function generate(TournamentCategory $category, array $schedule = []): int
     {
-        $category->load('tournament', 'approvedEntrants.players.user.playerProfile');
+        $category->loadMissing('tournament');
+        $schedule = $this->normalizeSchedule($category->tournament, $schedule);
 
+        return $this->generateCategory($category, $schedule);
+    }
+
+    public function generateTournament(Tournament $tournament, array $categoryIds, array $schedule = []): int
+    {
+        $categoryIds = collect($categoryIds)->map(fn ($id) => (int) $id)->unique()->values();
+
+        if ($categoryIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'category_ids' => 'Select at least one category to generate.',
+            ]);
+        }
+
+        $categories = $tournament->categories()
+            ->whereIn('id', $categoryIds)
+            ->with('tournament', 'approvedEntrants.players.user.playerProfile')
+            ->orderBy('id')
+            ->get();
+
+        if ($categories->count() !== $categoryIds->count()) {
+            throw ValidationException::withMessages([
+                'category_ids' => 'Select categories from this tournament only.',
+            ]);
+        }
+
+        $schedule = $this->normalizeSchedule($tournament, $schedule);
+        $created = 0;
+
+        foreach ($categories as $category) {
+            $created += $this->generateCategory($category, $schedule, $created);
+        }
+
+        return $created;
+    }
+
+    private function generateCategory(TournamentCategory $category, array $schedule, int $sequenceStart = 0): int
+    {
+        $category->loadMissing('tournament', 'approvedEntrants.players.user.playerProfile');
         $entrants = $category->approvedEntrants
             ->sortBy(fn (TournamentEntrant $entrant) => $entrant->seed ?? 9999)
             ->values();
@@ -31,16 +71,15 @@ class TournamentDrawService
         }
 
         MatchRecord::where('tournament_category_id', $category->id)->delete();
-        $schedule = $this->normalizeSchedule($category, $schedule);
 
         if ($category->draw_mode === 'round_robin') {
-            return $this->roundRobin($category, $entrants, $schedule);
+            return $this->roundRobin($category, $entrants, $schedule, $sequenceStart);
         }
 
-        return $this->singleElimination($category, $entrants, $schedule);
+        return $this->singleElimination($category, $entrants, $schedule, $sequenceStart);
     }
 
-    private function singleElimination(TournamentCategory $category, Collection $entrants, array $schedule): int
+    private function singleElimination(TournamentCategory $category, Collection $entrants, array $schedule, int $sequenceStart): int
     {
         $created = 0;
 
@@ -52,13 +91,13 @@ class TournamentDrawService
                 continue;
             }
 
-            $created += $this->createMatch($category, $pair->get(0), $pair->get(1), 1, null, $position + 1, $schedule, $created);
+            $created += $this->createMatch($category, $pair->get(0), $pair->get(1), 1, null, $position + 1, $schedule, $sequenceStart + $created);
         }
 
         return $created;
     }
 
-    private function roundRobin(TournamentCategory $category, Collection $entrants, array $schedule): int
+    private function roundRobin(TournamentCategory $category, Collection $entrants, array $schedule, int $sequenceStart): int
     {
         $created = 0;
         $groups = $entrants->values()->chunk(4)->values();
@@ -76,7 +115,7 @@ class TournamentDrawService
 
             for ($i = 0; $i < $groupEntrants->count(); $i++) {
                 for ($j = $i + 1; $j < $groupEntrants->count(); $j++) {
-                    $created += $this->createMatch($category, $groupEntrants->get($i), $groupEntrants->get($j), 1, $groupName, $created + 1, $schedule, $created);
+                    $created += $this->createMatch($category, $groupEntrants->get($i), $groupEntrants->get($j), 1, $groupName, $created + 1, $schedule, $sequenceStart + $created);
                 }
             }
         }
@@ -119,9 +158,9 @@ class TournamentDrawService
         return 1;
     }
 
-    private function normalizeSchedule(TournamentCategory $category, array $schedule): array
+    private function normalizeSchedule(Tournament $tournament, array $schedule): array
     {
-        $date = $category->tournament->starts_at?->toDateString() ?? now()->toDateString();
+        $date = $tournament->starts_at?->toDateString() ?? now()->toDateString();
 
         return [
             'courts_count' => max(1, (int) ($schedule['courts_count'] ?? 1)),

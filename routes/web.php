@@ -99,7 +99,7 @@ Route::get('tournaments/{tournament:slug}/draws/{category:slug}', function (Tour
     abort_unless($category->tournament_id === $tournament->id, 404);
 
     return view('tournaments.draw', [
-        'tournament' => $tournament->load('club', 'organizer'),
+        'tournament' => $tournament->load('club', 'organizer', 'categories'),
         'category' => $category->load('entrants.players.user.playerProfile', 'matches.players.user.playerProfile'),
     ]);
 })->scopeBindings()->name('tournaments.draw');
@@ -323,6 +323,22 @@ Route::middleware(['auth'])->group(function () {
         }) ?? view('organizer.tournaments.draws', [
             'tournament' => $tournament->load('categories.entrants.players.user.playerProfile', 'categories.matches.players.user.playerProfile'),
         ]))->name('draws');
+
+        Route::post('{tournament:slug}/draws/generate', function (Tournament $tournament, TournamentDrawService $draws) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            $data = request()->validate([
+                'category_ids' => ['required', 'array', 'min:1'],
+                'category_ids.*' => ['integer', 'exists:tournament_categories,id'],
+                'courts_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'court_label_prefix' => ['nullable', 'string', 'max:40'],
+                'first_court_number' => ['nullable', 'integer', 'min:1', 'max:99'],
+                'schedule_start_time' => ['nullable', 'date_format:H:i'],
+                'match_duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240'],
+            ]);
+            $created = $draws->generateTournament($tournament, $data['category_ids'], $data);
+
+            return back()->with('status', "{$created} draw matches generated across selected categories.");
+        })->name('draws.generate.tournament');
 
         Route::post('{tournament:slug}/draws/{category:slug}/generate', function (Tournament $tournament, TournamentCategory $category, TournamentDrawService $draws) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
