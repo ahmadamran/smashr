@@ -125,10 +125,17 @@ class SmashrPlatformTest extends TestCase
         $club = Club::create(['name' => 'Smoke Club', 'slug' => 'smoke-club']);
         $user->clubs()->attach($club);
 
-        $this->get('/')->assertOk()->assertSee('Know your level');
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('SMASHR - Badminton ratings, draws and live scores - Home')
+            ->assertSee('Know your level');
         $this->get(route('players.show', $user->playerProfile))->assertOk()->assertSee('Smoke Player');
         $this->get(route('clubs.show', $club))->assertOk()->assertSee('Smoke Club');
-        $this->actingAs($user)->get('/dashboard')->assertOk()->assertSee('Player dashboard');
+        $this->actingAs($user)
+            ->get('/dashboard')
+            ->assertOk()
+            ->assertSee('SMASHR - Badminton ratings, draws and live scores - Dashboard')
+            ->assertSee('Player dashboard');
     }
 
     public function test_public_match_index_renders_confirmed_matches(): void
