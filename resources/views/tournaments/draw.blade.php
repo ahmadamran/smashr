@@ -185,50 +185,55 @@
                                     <h3 class="mt-1 text-lg font-black">{{ $round['title'] }}</h3>
                                 </div>
 
-                                <div class="mt-4 grid" style="gap: {{ 1.25 + ($roundIndex * 1.25) }}rem;">
+                                <div class="mt-4 grid" style="grid-template-rows: repeat({{ $drawSize }}, 6.75rem);">
                                     @foreach ($round['matches'] as $drawMatch)
                                         @php
                                             $hasPreviousRound = $roundIndex > 0;
                                             $hasNextRound = $roundIndex < count($bracketRounds) - 1;
+                                            $rowSpan = 2 ** $round['number'];
+                                            $rowStart = (($drawMatch['position'] - 1) * $rowSpan) + 1;
                                         @endphp
-                                        <article class="relative rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
+                                        <div class="relative flex items-center" style="grid-row: {{ $rowStart }} / span {{ $rowSpan }};">
                                             @if ($hasPreviousRound)
+                                                <span class="pointer-events-none absolute right-full top-1/4 bottom-1/4 w-px bg-blue-950/25"></span>
                                                 <span class="pointer-events-none absolute right-full top-1/2 h-px w-5 bg-blue-950/25"></span>
                                             @endif
                                             @if ($hasNextRound)
                                                 <span class="pointer-events-none absolute left-full top-1/2 h-px w-5 bg-blue-950/25"></span>
                                             @endif
-                                            <div class="flex items-center justify-between gap-3">
-                                                <p class="text-[11px] font-black uppercase tracking-[.16em] text-blue-950/45">Match {{ $drawMatch['position'] }}</p>
-                                                @if ($drawMatch['match']?->scheduled_at || $drawMatch['match']?->court_label)
-                                                    <p class="text-[11px] font-black uppercase text-[#d6a31d]">
-                                                        {{ $drawMatch['match']?->scheduled_at?->format('g:i A') }}
-                                                        {{ $drawMatch['match']?->court_label ? ' | '.$drawMatch['match']->court_label : '' }}
-                                                    </p>
+                                            <article class="w-full rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <p class="text-[11px] font-black uppercase tracking-[.16em] text-blue-950/45">Match {{ $drawMatch['position'] }}</p>
+                                                    @if ($drawMatch['match']?->scheduled_at || $drawMatch['match']?->court_label)
+                                                        <p class="text-[11px] font-black uppercase text-[#d6a31d]">
+                                                            {{ $drawMatch['match']?->scheduled_at?->format('g:i A') }}
+                                                            {{ $drawMatch['match']?->court_label ? ' | '.$drawMatch['match']->court_label : '' }}
+                                                        </p>
+                                                    @endif
+                                                </div>
+
+                                                <div class="mt-3 divide-y divide-blue-950/10 overflow-hidden rounded-md border border-blue-950/10 bg-white">
+                                                    <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-blue-50' : '' }}">
+                                                        <p class="text-sm font-black text-[#071a80]">{{ $drawMatch['side_a'] }}</p>
+                                                        @if ($drawMatch['winner_side'] === 'A')
+                                                            <span class="text-xs font-black uppercase text-green-700">Won</span>
+                                                        @endif
+                                                    </div>
+                                                    <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-blue-50' : '' }}">
+                                                        <p class="text-sm font-black text-[#071a80]">{{ $drawMatch['side_b'] }}</p>
+                                                        @if ($drawMatch['winner_side'] === 'B')
+                                                            <span class="text-xs font-black uppercase text-green-700">Won</span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+
+                                                @if ($drawMatch['score'])
+                                                    <p class="mt-2 text-xs font-bold text-blue-950/60">{{ $drawMatch['score'] }}</p>
+                                                @elseif ($drawMatch['note'])
+                                                    <p class="mt-2 text-xs font-bold text-blue-950/45">{{ $drawMatch['note'] }}</p>
                                                 @endif
-                                            </div>
-
-                                            <div class="mt-3 divide-y divide-blue-950/10 overflow-hidden rounded-md border border-blue-950/10 bg-white">
-                                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-blue-50' : '' }}">
-                                                    <p class="text-sm font-black text-[#071a80]">{{ $drawMatch['side_a'] }}</p>
-                                                    @if ($drawMatch['winner_side'] === 'A')
-                                                        <span class="text-xs font-black uppercase text-green-700">Won</span>
-                                                    @endif
-                                                </div>
-                                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-blue-50' : '' }}">
-                                                    <p class="text-sm font-black text-[#071a80]">{{ $drawMatch['side_b'] }}</p>
-                                                    @if ($drawMatch['winner_side'] === 'B')
-                                                        <span class="text-xs font-black uppercase text-green-700">Won</span>
-                                                    @endif
-                                                </div>
-                                            </div>
-
-                                            @if ($drawMatch['score'])
-                                                <p class="mt-2 text-xs font-bold text-blue-950/60">{{ $drawMatch['score'] }}</p>
-                                            @elseif ($drawMatch['note'])
-                                                <p class="mt-2 text-xs font-bold text-blue-950/45">{{ $drawMatch['note'] }}</p>
-                                            @endif
-                                        </article>
+                                            </article>
+                                        </div>
                                     @endforeach
                                 </div>
                             </div>
