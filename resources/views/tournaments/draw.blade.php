@@ -193,11 +193,10 @@
                                         @endphp
                                         <article class="relative rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
                                             @if ($hasPreviousRound)
-                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-5 bg-[#d6a31d]/70"></span>
-                                                <span class="pointer-events-none absolute right-[calc(100%+1.25rem)] top-1/2 w-px -translate-y-1/2 bg-[#d6a31d]/45" style="height: {{ 6 + ($roundIndex * 4) }}rem;"></span>
+                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-5 bg-blue-950/25"></span>
                                             @endif
                                             @if ($hasNextRound)
-                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-5 bg-[#d6a31d]/70"></span>
+                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-5 bg-blue-950/25"></span>
                                             @endif
                                             <div class="flex items-center justify-between gap-3">
                                                 <p class="text-[11px] font-black uppercase tracking-[.16em] text-blue-950/45">Match {{ $drawMatch['position'] }}</p>
