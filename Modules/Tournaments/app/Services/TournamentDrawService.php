@@ -82,19 +82,36 @@ class TournamentDrawService
     private function singleElimination(TournamentCategory $category, Collection $entrants, array $schedule, int $sequenceStart): int
     {
         $created = 0;
+        $drawSize = $this->nextPowerOfTwo($entrants->count());
+        $byeCount = $drawSize - $entrants->count();
+        $byeEntrants = $entrants->take($byeCount)->values();
+        $playingEntrants = $entrants->slice($byeCount)->values();
 
-        foreach ($entrants->chunk(2)->values() as $position => $pair) {
+        foreach ($byeEntrants as $index => $entrant) {
+            $entrant->forceFill([
+                'draw_position' => ($index * 2) + 1,
+                'group_name' => null,
+            ])->save();
+        }
+
+        foreach ($playingEntrants->chunk(2)->values() as $index => $pair) {
             $pair = $pair->values();
-
-            if ($pair->count() < 2) {
-                $pair->first()?->forceFill(['draw_position' => ($position * 2) + 1])->save();
-                continue;
-            }
-
-            $created += $this->createMatch($category, $pair->get(0), $pair->get(1), 1, null, $position + 1, $schedule, $sequenceStart + $created);
+            $position = $byeCount + $index + 1;
+            $created += $this->createMatch($category, $pair->get(0), $pair->get(1), 1, null, $position, $schedule, $sequenceStart + $created);
         }
 
         return $created;
+    }
+
+    private function nextPowerOfTwo(int $count): int
+    {
+        $drawSize = 2;
+
+        while ($drawSize < max(2, $count)) {
+            $drawSize *= 2;
+        }
+
+        return $drawSize;
     }
 
     private function roundRobin(TournamentCategory $category, Collection $entrants, array $schedule, int $sequenceStart): int

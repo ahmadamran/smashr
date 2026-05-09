@@ -164,6 +164,74 @@ class TournamentOrganizerTest extends TestCase
         $this->assertNotNull($roundRobin->matches()->first()?->score_sheet_token);
     }
 
+    public function test_single_elimination_draw_uses_standard_bye_formula(): void
+    {
+        $organizer = $this->player('Bye Formula Owner');
+        $tournament = $this->tournament($organizer);
+        $cases = [
+            4 => 2,
+            5 => 1,
+            25 => 9,
+            50 => 18,
+        ];
+
+        foreach ($cases as $entrantCount => $expectedMatches) {
+            $category = $this->category($tournament, 'Bye Formula '.$entrantCount, 'singles');
+
+            foreach (range(1, $entrantCount) as $seed) {
+                $this->entrant($tournament, $category, [$this->player('Bye Formula '.$entrantCount.' Player '.$seed)], 'approved', $seed);
+            }
+
+            $this->actingAs($organizer)
+                ->post(route('organizer.tournaments.draws.generate', [$tournament, $category]))
+                ->assertRedirect();
+
+            $this->assertSame($expectedMatches, $category->matches()->count(), "Unexpected match count for {$entrantCount} entrants.");
+        }
+    }
+
+    public function test_single_elimination_byes_go_to_top_seeds_and_render_without_bye_vs_bye(): void
+    {
+        $organizer = $this->player('Seeded Bye Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Seeded Bye Singles', 'singles');
+
+        foreach (range(1, 5) as $seed) {
+            $this->entrant($tournament, $category, [$this->player('Seeded Bye Player '.$seed)], 'approved', $seed);
+        }
+
+        $this->actingAs($organizer)
+            ->post(route('organizer.tournaments.draws.generate', [$tournament, $category]), [
+                'courts_count' => 2,
+                'court_label_prefix' => 'Arena',
+                'first_court_number' => 1,
+                'schedule_start_time' => '09:00',
+                'match_duration_minutes' => 30,
+            ])
+            ->assertRedirect();
+
+        $category->refresh();
+
+        $this->assertSame(1, $category->matches()->count());
+        $this->assertSame([1, 3, 5], $category->entrants()->whereIn('seed', [1, 2, 3])->orderBy('seed')->pluck('draw_position')->all());
+        $this->assertSame([7, 8], $category->entrants()->whereIn('seed', [4, 5])->orderBy('seed')->pluck('draw_position')->all());
+        $this->assertSame(['Arena 1'], $category->matches()->pluck('court_label')->all());
+
+        $this->get(route('tournaments.draw', [$tournament, $category]))
+            ->assertOk()
+            ->assertSee('8 draw')
+            ->assertSeeInOrder([
+                'Seeded Bye Player 1',
+                'BYE',
+                'Seeded Bye Player 2',
+                'BYE',
+                'Seeded Bye Player 3',
+                'BYE',
+                'Seeded Bye Player 4',
+                'Seeded Bye Player 5',
+            ]);
+    }
+
     public function test_tournament_scoresheet_link_opens_by_secret_token(): void
     {
         $organizer = $this->player('Sheet Link Owner');
