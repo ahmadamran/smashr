@@ -9,7 +9,7 @@
             <button class="rounded-md bg-[#071a80] px-4 py-3 text-sm font-black uppercase text-white md:col-span-2">Save settings</button>
         </form>
 
-        <section class="rounded-lg bg-white p-6 shadow-lg">
+        <section id="categories" class="rounded-lg bg-white p-6 shadow-lg">
             <h2 class="text-2xl font-black text-[#071a80]">Categories</h2>
             <form method="POST" action="{{ route('organizer.tournaments.categories.store', $tournament) }}" class="mt-5 grid gap-3 md:grid-cols-6">@csrf
                 <input name="name" placeholder="Category name" class="rounded-md border-gray-300 md:col-span-2">

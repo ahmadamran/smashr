@@ -465,7 +465,7 @@ class TournamentOrganizerTest extends TestCase
             ->assertSee('Semifinals')
             ->assertSee('Final')
             ->assertSee('Winner Match 1');
-        $this->get(route('tournaments.matches', $tournament))->assertOk()->assertSee('Tournament matches')->assertSee('Public A');
+        $this->get(route('tournaments.matches', $tournament))->assertOk()->assertSee('Tournament schedule')->assertSee('Public A');
     }
 
     private function tournament(User $organizer): Tournament

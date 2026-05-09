@@ -115,7 +115,7 @@ Route::get('tournaments/{tournament:slug}/matches', function (Tournament $tourna
         ->get();
 
     return view('tournaments.matches', [
-        'tournament' => $tournament->load('club', 'organizer'),
+        'tournament' => $tournament->load('club', 'organizer', 'categories'),
         'liveMatches' => $matches->where('live_status', 'live')->values(),
         'matches' => $matches
             ->reject(fn (MatchRecord $match) => $match->live_status === 'live')

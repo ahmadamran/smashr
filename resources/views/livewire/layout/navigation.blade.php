@@ -27,10 +27,11 @@ new class extends Component
 
             <!-- Navigation Links -->
             <div class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
+                <a href="{{ url('/') }}" wire:navigate class="{{ request()->is('/') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Home') }}</a>
                 <a href="{{ route('rankings') }}" wire:navigate class="{{ request()->routeIs('rankings') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Rankings') }}</a>
-                <a href="{{ route('matches.index') }}" wire:navigate class="{{ request()->routeIs('matches.index') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Matches') }}</a>
-                <a href="{{ route('clubs.index') }}" wire:navigate class="{{ request()->routeIs('clubs.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Clubs') }}</a>
                 <a href="{{ route('tournaments.index') }}" wire:navigate class="{{ request()->routeIs('tournaments.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Tournaments') }}</a>
+                <a href="{{ route('clubs.index') }}" wire:navigate class="{{ request()->routeIs('clubs.*') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Clubs') }}</a>
+                <a href="{{ route('matches.index') }}" wire:navigate class="{{ request()->routeIs('matches.index') ? 'text-[#d6a31d]' : 'hover:text-[#d6a31d]' }}">{{ __('Results') }}</a>
             </div>
 
             <!-- Settings Dropdown -->
@@ -52,6 +53,9 @@ new class extends Component
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile')" wire:navigate>
                             {{ __('Profile') }}
+                        </x-dropdown-link>
+                        <x-dropdown-link :href="route('profile.player')" wire:navigate>
+                            {{ __('Player Settings') }}
                         </x-dropdown-link>
 
                         <!-- Authentication -->
@@ -83,8 +87,9 @@ new class extends Component
         <div class="hidden border-t border-blue-950/10 bg-[#f8fafc] md:block">
             <div class="mx-auto flex max-w-7xl items-center gap-6 px-5 py-3 text-xs font-black uppercase tracking-[.12em] text-blue-950/60">
                 <a href="{{ route('dashboard') }}" wire:navigate class="{{ request()->routeIs('dashboard') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Dashboard') }}</a>
-                <a href="{{ route('matches.create') }}" wire:navigate class="{{ request()->routeIs('matches.create') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Submit Match') }}</a>
-                <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.*') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Organizer') }}</a>
+                <a href="{{ route('matches.create') }}" wire:navigate class="{{ request()->routeIs('matches.create') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Submit Result') }}</a>
+                <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.tournaments.index') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('My Tournaments') }}</a>
+                <a href="{{ route('organizer.tournaments.create') }}" wire:navigate class="{{ request()->routeIs('organizer.tournaments.create') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Create Tournament') }}</a>
                 @if (auth()->user()->hasRole('superadmin'))
                     <a href="{{ route('admin.dashboard') }}" wire:navigate class="{{ request()->routeIs('admin.*') ? 'text-[#d6a31d]' : 'hover:text-[#071a80]' }}">{{ __('Admin') }}</a>
                 @endif
@@ -107,36 +112,62 @@ new class extends Component
 
         <div class="px-6 py-10">
             @php
-                $mobileLinks = [
+                $mainLinks = [
+                    ['label' => 'Home', 'url' => url('/'), 'active' => request()->is('/')],
                     ['label' => 'Rankings', 'url' => route('rankings'), 'active' => request()->routeIs('rankings')],
-                    ['label' => 'Matches', 'url' => route('matches.index'), 'active' => request()->routeIs('matches.index')],
-                    ['label' => 'Clubs', 'url' => route('clubs.index'), 'active' => request()->routeIs('clubs.*')],
                     ['label' => 'Tournaments', 'url' => route('tournaments.index'), 'active' => request()->routeIs('tournaments.*')],
+                    ['label' => 'Clubs', 'url' => route('clubs.index'), 'active' => request()->routeIs('clubs.*')],
+                    ['label' => 'Results', 'url' => route('matches.index'), 'active' => request()->routeIs('matches.index')],
                 ];
+                $playerLinks = [];
+                $organizerLinks = [];
+                $accountLinks = [];
+
                 if (auth()->check()) {
-                    array_unshift($mobileLinks, ['label' => 'Dashboard', 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')]);
-                    $mobileLinks[] = ['label' => 'Submit Match', 'url' => route('matches.create'), 'active' => request()->routeIs('matches.create')];
-                    $mobileLinks[] = ['label' => 'Organizer', 'url' => route('organizer.tournaments.index'), 'active' => request()->routeIs('organizer.*')];
+                    $playerLinks = [
+                        ['label' => 'Dashboard', 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
+                        ['label' => 'Submit Result', 'url' => route('matches.create'), 'active' => request()->routeIs('matches.create')],
+                    ];
+                    $organizerLinks = [
+                        ['label' => 'My Tournaments', 'url' => route('organizer.tournaments.index'), 'active' => request()->routeIs('organizer.tournaments.index')],
+                        ['label' => 'Create Tournament', 'url' => route('organizer.tournaments.create'), 'active' => request()->routeIs('organizer.tournaments.create')],
+                    ];
                     if (auth()->user()->hasRole('superadmin')) {
-                        $mobileLinks[] = ['label' => 'Admin', 'url' => route('admin.dashboard'), 'active' => request()->routeIs('admin.*')];
+                        $organizerLinks[] = ['label' => 'Admin', 'url' => route('admin.dashboard'), 'active' => request()->routeIs('admin.*')];
                     }
+                    $accountLinks = [
+                        ['label' => 'Profile', 'url' => route('profile'), 'active' => request()->routeIs('profile')],
+                        ['label' => 'Player Settings', 'url' => route('profile.player'), 'active' => request()->routeIs('profile.player')],
+                    ];
                 }
             @endphp
 
-            <div class="divide-y divide-dashed divide-blue-950/15 border-y border-dashed border-blue-950/15">
-                @foreach ($mobileLinks as $link)
-                    <a href="{{ $link['url'] }}" wire:navigate @click="open = false" class="flex items-center justify-between py-6 text-2xl font-black uppercase tracking-[.18em] {{ $link['active'] ? 'text-[#071a80]' : 'text-[#1d3448]' }}">
-                        <span>{{ $link['label'] }}</span>
-                        @if ($link['active'])
-                            <span class="h-2 w-2 rounded-full bg-[#d6a31d]"></span>
-                        @endif
-                    </a>
-                @endforeach
-            </div>
+            @foreach ([
+                'Main' => $mainLinks,
+                'Player' => $playerLinks,
+                'Organizer' => $organizerLinks,
+                'Account' => $accountLinks,
+            ] as $groupLabel => $links)
+                @if (count($links))
+                    <div class="{{ $loop->first ? '' : 'mt-8' }}">
+                        <p class="mb-3 text-xs font-black uppercase tracking-[.22em] text-blue-950/35">{{ $groupLabel }}</p>
+                        <div class="divide-y divide-dashed divide-blue-950/15 border-y border-dashed border-blue-950/15">
+                            @foreach ($links as $link)
+                                <a href="{{ $link['url'] }}" wire:navigate @click="open = false" class="flex items-center justify-between py-5 text-xl font-black uppercase tracking-[.16em] {{ $link['active'] ? 'text-[#071a80]' : 'text-[#1d3448]' }}">
+                                    <span>{{ $link['label'] }}</span>
+                                    @if ($link['active'])
+                                        <span class="h-2 w-2 rounded-full bg-[#d6a31d]"></span>
+                                    @endif
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            @endforeach
 
             @auth
                 <div class="mt-8 flex items-center justify-between gap-4">
-                    <a href="{{ route('profile') }}" wire:navigate @click="open = false" class="text-sm font-black uppercase tracking-[.18em] text-[#071a80]">Profile</a>
+                    <span class="text-sm font-black uppercase tracking-[.18em] text-[#071a80]">{{ auth()->user()->name }}</span>
                     <button wire:click="logout" class="text-sm font-black uppercase tracking-[.18em] text-blue-950/50">Log out</button>
                 </div>
             @else

@@ -10,6 +10,7 @@
     </x-slot>
 
     <div class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+        @include('tournaments.partials.nav', ['tournament' => $tournament])
         @if ($errors->any())
             <div class="mb-6 rounded-lg bg-red-50 p-4 text-sm font-bold text-red-800">
                 {{ $errors->first() }}

@@ -21,7 +21,7 @@
                 <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Player dashboard</p>
                 <h1 class="text-3xl font-black text-[#071a80]">{{ $profile?->display_name ?? auth()->user()->name }}</h1>
             </div>
-            <a href="{{ route('matches.create') }}" wire:navigate class="rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white">Submit match</a>
+            <a href="{{ route('matches.create') }}" wire:navigate class="rounded-full bg-[#071a80] px-5 py-3 text-xs font-black uppercase text-white">Submit result</a>
         </div>
     </x-slot>
 

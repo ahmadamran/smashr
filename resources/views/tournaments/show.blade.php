@@ -17,6 +17,7 @@
         @if (session('status'))
             <div class="mb-6 rounded-lg bg-green-50 p-4 text-sm font-bold text-green-800">{{ session('status') }}</div>
         @endif
+        @include('tournaments.partials.nav', ['tournament' => $tournament])
 
         <div class="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
             <section class="rounded-lg bg-white p-6 shadow-lg">
@@ -52,7 +53,7 @@
                     <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Categories</p>
                     <h2 class="text-2xl font-black text-[#071a80]">Draws and entrants</h2>
                 </div>
-                <a href="{{ route('tournaments.matches', $tournament) }}" class="w-fit rounded-full border border-blue-950/10 px-4 py-2 text-xs font-black uppercase text-[#071a80]">Match schedule</a>
+                <a href="{{ route('tournaments.matches', $tournament) }}" class="w-fit rounded-full border border-blue-950/10 px-4 py-2 text-xs font-black uppercase text-[#071a80]">Schedule</a>
             </div>
             <div class="mt-6 grid gap-5 lg:grid-cols-2">
                 @forelse ($tournament->categories as $category)

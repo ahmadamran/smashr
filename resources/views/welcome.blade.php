@@ -40,9 +40,9 @@
                 </a>
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
-                    <a href="{{ route('matches.index') }}" class="hover:text-[#d6a31d]">Matches</a>
-                    <a href="{{ route('clubs.index') }}" class="hover:text-[#d6a31d]">Clubs</a>
                     <a href="{{ route('tournaments.index') }}" class="hover:text-[#d6a31d]">Tournaments</a>
+                    <a href="{{ route('clubs.index') }}" class="hover:text-[#d6a31d]">Clubs</a>
+                    <a href="{{ route('matches.index') }}" class="hover:text-[#d6a31d]">Results</a>
                 </nav>
                 <div class="hidden items-center gap-4 text-sm font-bold uppercase md:flex">
                     @auth
@@ -74,10 +74,11 @@
                 </div>
                 <div class="px-6 py-10">
                     <div class="divide-y divide-dashed divide-blue-950/15 border-y border-dashed border-blue-950/15">
+                        <a href="/" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Home</a>
                         <a href="{{ route('rankings') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Rankings</a>
-                        <a href="{{ route('matches.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Matches</a>
-                        <a href="{{ route('clubs.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Clubs</a>
                         <a href="{{ route('tournaments.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Tournaments</a>
+                        <a href="{{ route('clubs.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Clubs</a>
+                        <a href="{{ route('matches.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Results</a>
                     </div>
                     <div class="mt-8 grid grid-cols-2 gap-3">
                         @auth
