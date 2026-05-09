@@ -15,6 +15,7 @@ use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
+use Modules\Tournaments\Services\RoundRobinStandingsService;
 use Modules\Tournaments\Services\TournamentDrawService;
 use Spatie\Permission\Models\Role;
 use Livewire\Volt\Volt;
@@ -103,6 +104,42 @@ Route::get('tournaments/{tournament:slug}/draws/{category:slug}', function (Tour
         'category' => $category->load('entrants.players.user.playerProfile', 'matches.players.user.playerProfile'),
     ]);
 })->scopeBindings()->name('tournaments.draw');
+
+Route::get('tournaments/{tournament:slug}/draws/{category:slug}/{group}', function (Tournament $tournament, TournamentCategory $category, string $group, RoundRobinStandingsService $standings) {
+    abort_unless($category->tournament_id === $tournament->id, 404);
+    abort_unless($category->draw_mode === 'round_robin', 404);
+
+    $category->load('entrants.players.user.playerProfile', 'matches.players.user.playerProfile');
+    $groupName = Str::of($group)->replace('-', ' ')->title()->toString();
+    abort_unless($category->entrants->contains('group_name', $groupName), 404);
+
+    return view('tournaments.group', [
+        'tournament' => $tournament->load('club', 'organizer', 'categories'),
+        'category' => $category,
+        'groupName' => $groupName,
+        'standings' => $standings->forGroup($category, $groupName),
+    ]);
+})->scopeBindings()->name('tournaments.draw.group');
+
+Route::get('tournaments/{tournament:slug}/draws/{category:slug}/{group}/matches', function (Tournament $tournament, TournamentCategory $category, string $group, RoundRobinStandingsService $standings) {
+    abort_unless($category->tournament_id === $tournament->id, 404);
+    abort_unless($category->draw_mode === 'round_robin', 404);
+
+    $groupName = Str::of($group)->replace('-', ' ')->title()->toString();
+    $category->load('entrants.players.user.playerProfile', 'matches.players.user.playerProfile');
+    abort_unless($category->entrants->contains('group_name', $groupName), 404);
+
+    return view('tournaments.group-matches', [
+        'tournament' => $tournament->load('club', 'organizer', 'categories'),
+        'category' => $category,
+        'groupName' => $groupName,
+        'standings' => $standings->forGroup($category, $groupName),
+        'matches' => $category->matches
+            ->where('draw_group', $groupName)
+            ->sortBy(fn (MatchRecord $match) => [$match->scheduled_at?->timestamp ?? 0, $match->draw_position])
+            ->values(),
+    ]);
+})->scopeBindings()->name('tournaments.draw.group.matches');
 
 Route::get('tournaments/{tournament:slug}/matches', function (Tournament $tournament) {
     $matches = $tournament->matches()
@@ -257,9 +294,11 @@ Route::middleware(['auth'])->group(function () {
                 'format' => ['required', 'in:singles,doubles,mixed'],
                 'level_label' => ['nullable', 'string', 'max:80'],
                 'draw_mode' => ['required', 'in:single_elimination,round_robin'],
+                'group_size' => ['nullable', 'integer', 'in:3,4,5,6'],
                 'max_entrants' => ['nullable', 'integer', 'min:2', 'max:256'],
                 'status' => ['required', 'in:draft,published,closed'],
             ]);
+            $data['group_size'] = $data['draw_mode'] === 'round_robin' ? (int) ($data['group_size'] ?? 4) : 4;
             $tournament->categories()->create([...$data, 'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(3))]);
 
             return back()->with('status', 'Category added.');

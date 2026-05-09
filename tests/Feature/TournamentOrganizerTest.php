@@ -232,6 +232,83 @@ class TournamentOrganizerTest extends TestCase
             ]);
     }
 
+    public function test_round_robin_group_size_controls_grouping_and_pairings(): void
+    {
+        $organizer = $this->player('Group Size Owner');
+        $tournament = $this->tournament($organizer);
+        $cases = [
+            3 => ['counts' => [3, 3, 2], 'matches' => 7],
+            4 => ['counts' => [4, 4], 'matches' => 12],
+            5 => ['counts' => [5, 5, 2], 'matches' => 21, 'entrants' => 12],
+        ];
+
+        foreach ($cases as $groupSize => $expected) {
+            $category = $this->category($tournament, 'Group Size '.$groupSize, 'singles', 'round_robin', $groupSize);
+            $entrantCount = $expected['entrants'] ?? 8;
+
+            foreach (range(1, $entrantCount) as $seed) {
+                $this->entrant($tournament, $category, [$this->player('Group Size '.$groupSize.' Player '.$seed)], 'approved', $seed);
+            }
+
+            $this->actingAs($organizer)
+                ->post(route('organizer.tournaments.draws.generate', [$tournament, $category]), [
+                    'courts_count' => 2,
+                    'schedule_start_time' => '09:00',
+                    'match_duration_minutes' => 30,
+                ])
+                ->assertRedirect();
+
+            $this->assertSame($expected['matches'], $category->matches()->count());
+            $this->assertSame($expected['counts'], $category->entrants()->orderBy('group_name')->get()->groupBy('group_name')->map->count()->values()->all());
+        }
+    }
+
+    public function test_round_robin_group_pages_show_standings_and_group_matches(): void
+    {
+        $organizer = $this->player('Group Page Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'BWF Group Singles', 'singles', 'round_robin', 3);
+
+        foreach (range(1, 6) as $seed) {
+            $this->entrant($tournament, $category, [$this->player('BWF Group Player '.$seed)], 'approved', $seed);
+        }
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+        $match = $category->matches()->where('draw_group', 'Group A')->orderBy('draw_position')->firstOrFail();
+
+        $this->actingAs($organizer)
+            ->patch(route('organizer.tournaments.matches.result', [$tournament, $match]), [
+                'played_at' => now()->toDateString(),
+                'winner_side' => 'A',
+                'games' => [
+                    ['a' => 21, 'b' => 10],
+                    ['a' => 21, 'b' => 12],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->get(route('tournaments.draw', [$tournament, $category]))
+            ->assertOk()
+            ->assertSee('Round robin groups of 3')
+            ->assertSee('Group A')
+            ->assertSee('Group B')
+            ->assertSee('Standings')
+            ->assertSee('Matches');
+
+        $this->get(route('tournaments.draw.group', [$tournament, $category, 'group-a']))
+            ->assertOk()
+            ->assertSee('Group standings')
+            ->assertSee('BWF Group Player 1')
+            ->assertSeeInOrder(['BWF Group Player 1', 'BWF Group Player 2']);
+
+        $this->get(route('tournaments.draw.group.matches', [$tournament, $category, 'group-a']))
+            ->assertOk()
+            ->assertSee('Group fixtures')
+            ->assertSee('21-10, 21-12')
+            ->assertSee('BWF Group Player 1')
+            ->assertDontSee('BWF Group Player 4');
+    }
+
     public function test_tournament_scoresheet_link_opens_by_secret_token(): void
     {
         $organizer = $this->player('Sheet Link Owner');
@@ -554,13 +631,14 @@ class TournamentOrganizerTest extends TestCase
         ]);
     }
 
-    private function category(Tournament $tournament, string $name, string $format, string $drawMode = 'single_elimination'): TournamentCategory
+    private function category(Tournament $tournament, string $name, string $format, string $drawMode = 'single_elimination', int $groupSize = 4): TournamentCategory
     {
         return $tournament->categories()->create([
             'name' => $name,
             'slug' => str($name)->slug().'-'.fake()->unique()->numberBetween(100, 999),
             'format' => $format,
             'draw_mode' => $drawMode,
+            'group_size' => $groupSize,
             'status' => 'published',
         ]);
     }

@@ -109,10 +109,23 @@
         </div>
 
         @if ($category->draw_mode === 'round_robin')
+            @include('tournaments.partials.group-tabs', ['tournament' => $tournament, 'category' => $category])
+            <section class="mb-6 rounded-lg bg-white p-6 shadow-lg">
+                <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">Group draw</p>
+                <h2 class="mt-1 text-2xl font-black text-[#071a80]">Round robin groups of {{ $category->group_size }}</h2>
+            </section>
             <div class="grid gap-5 lg:grid-cols-2">
-                @foreach ($category->entrants->where('status', 'approved')->groupBy('group_name') as $group => $entrants)
+                @foreach ($category->entrants->where('status', 'approved')->groupBy('group_name')->sortKeys() as $group => $entrants)
                     <section class="rounded-lg bg-white p-6 shadow-lg">
-                        <h2 class="text-xl font-black text-[#071a80]">{{ $group ?: 'Ungrouped' }}</h2>
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <h2 class="text-xl font-black text-[#071a80]">{{ $group ?: 'Ungrouped' }}</h2>
+                            @if ($group)
+                                <div class="flex gap-2">
+                                    <a href="{{ route('tournaments.draw.group', [$tournament, $category, str($group)->slug()]) }}" class="rounded-full bg-[#071a80] px-4 py-2 text-xs font-black uppercase text-white">Standings</a>
+                                    <a href="{{ route('tournaments.draw.group.matches', [$tournament, $category, str($group)->slug()]) }}" class="rounded-full border border-blue-950/10 px-4 py-2 text-xs font-black uppercase text-[#071a80]">Matches</a>
+                                </div>
+                            @endif
+                        </div>
                         <div class="mt-4 divide-y divide-blue-950/10">
                             @foreach ($entrants as $entrant)
                                 <p class="py-2 font-bold text-blue-950/70">{{ $entrant->draw_position }}. {{ $entrant->displayName() }}</p>

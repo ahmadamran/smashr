@@ -117,7 +117,8 @@ class TournamentDrawService
     private function roundRobin(TournamentCategory $category, Collection $entrants, array $schedule, int $sequenceStart): int
     {
         $created = 0;
-        $groups = $entrants->values()->chunk(4)->values();
+        $groupSize = min(6, max(3, (int) ($category->group_size ?: 4)));
+        $groups = $entrants->values()->chunk($groupSize)->values();
 
         foreach ($groups as $groupIndex => $groupEntrants) {
             $groupEntrants = $groupEntrants->values();
@@ -130,9 +131,10 @@ class TournamentDrawService
                 ])->save();
             }
 
+            $groupCreated = 0;
             for ($i = 0; $i < $groupEntrants->count(); $i++) {
                 for ($j = $i + 1; $j < $groupEntrants->count(); $j++) {
-                    $created += $this->createMatch($category, $groupEntrants->get($i), $groupEntrants->get($j), 1, $groupName, $created + 1, $schedule, $sequenceStart + $created);
+                    $created += $this->createMatch($category, $groupEntrants->get($i), $groupEntrants->get($j), 1, $groupName, ++$groupCreated, $schedule, $sequenceStart + $created);
                 }
             }
         }

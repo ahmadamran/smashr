@@ -49,7 +49,7 @@
                             <input type="checkbox" name="category_ids[]" value="{{ $category->id }}" @checked(old('category_ids') ? in_array($category->id, old('category_ids', [])) : $approvedEntrants->count() >= 2) @disabled($approvedEntrants->count() < 2) class="mt-1 rounded border-blue-950/20 text-[#071a80] focus:ring-[#071a80]">
                             <span>
                                 <span class="block font-black text-[#071a80]">{{ $category->name }}</span>
-                                <span class="block text-xs uppercase text-blue-950/45">{{ $approvedEntrants->count() }} approved entrants | {{ str_replace('_', ' ', $category->draw_mode) }}</span>
+                                <span class="block text-xs uppercase text-blue-950/45">{{ $approvedEntrants->count() }} approved entrants | {{ str_replace('_', ' ', $category->draw_mode) }}{{ $category->draw_mode === 'round_robin' ? ' | groups of '.$category->group_size : '' }}</span>
                             </span>
                         </label>
                     @endforeach
@@ -67,7 +67,7 @@
                         <div>
                             <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">{{ str_replace('_', ' ', $category->draw_mode) }}</p>
                             <h2 class="text-2xl font-black text-[#071a80]">{{ $category->name }}</h2>
-                            <p class="mt-1 text-sm font-bold text-blue-950/50">{{ $approvedEntrants->count() }} approved entrants | {{ $category->matches->count() }} matches</p>
+                            <p class="mt-1 text-sm font-bold text-blue-950/50">{{ $approvedEntrants->count() }} approved entrants | {{ $category->matches->count() }} matches{{ $category->draw_mode === 'round_robin' ? ' | groups of '.$category->group_size : '' }}</p>
                         </div>
                     </div>
                     <div class="mt-5 divide-y divide-blue-950/10">
