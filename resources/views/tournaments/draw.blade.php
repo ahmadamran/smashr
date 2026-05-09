@@ -195,11 +195,11 @@
                                         @endphp
                                         <div class="relative flex items-center" style="grid-row: {{ $rowStart }} / span {{ $rowSpan }};">
                                             @if ($hasPreviousRound)
-                                                <span class="pointer-events-none absolute right-full top-1/4 bottom-1/4 w-px bg-blue-950/25"></span>
-                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-5 bg-blue-950/25"></span>
+                                                <span class="pointer-events-none absolute right-[calc(100%+0.625rem)] top-1/4 bottom-1/4 w-px bg-blue-950/25"></span>
+                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-2.5 bg-blue-950/25"></span>
                                             @endif
                                             @if ($hasNextRound)
-                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-5 bg-blue-950/25"></span>
+                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-2.5 bg-blue-950/25"></span>
                                             @endif
                                             <article class="w-full rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
                                                 <div class="flex items-center justify-between gap-3">
