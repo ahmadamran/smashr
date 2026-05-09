@@ -229,6 +229,11 @@ class TournamentOrganizerTest extends TestCase
                 'BYE',
                 'Seeded Bye Player 4',
                 'Seeded Bye Player 5',
+                'Semifinals',
+                'Seeded Bye Player 1',
+                'Seeded Bye Player 2',
+                'Seeded Bye Player 3',
+                'Winner Match 4',
             ]);
     }
 

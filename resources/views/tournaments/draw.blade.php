@@ -51,22 +51,48 @@
     };
 
     $bracketRounds = [];
+    $advancers = [];
     for ($round = 1; $round <= $roundCount; $round++) {
         $matchCount = $drawSize / (2 ** $round);
         $roundMatches = [];
 
         for ($position = 1; $position <= $matchCount; $position++) {
             $match = $matchesByRound->get($round)?->get($position);
+            $winnerSide = $match?->status === 'confirmed' ? $match->winner_side : null;
 
             if ($round === 1) {
                 $entrantA = $entrantByPosition->get(($position * 2) - 1);
                 $entrantB = $entrantByPosition->get($position * 2);
                 $sideA = $match ? $sideName($match, 'A') : ($entrantA?->displayName() ?: 'BYE');
                 $sideB = $match ? $sideName($match, 'B') : ($entrantB?->displayName() ?: 'BYE');
+
+                if (! $match && $sideA !== 'BYE' && $sideB === 'BYE') {
+                    $winnerSide = 'A';
+                } elseif (! $match && $sideA === 'BYE' && $sideB !== 'BYE') {
+                    $winnerSide = 'B';
+                }
             } else {
                 $previousPosition = (($position - 1) * 2) + 1;
-                $sideA = $match ? $sideName($match, 'A') : 'Winner Match '.$previousPosition;
-                $sideB = $match ? $sideName($match, 'B') : 'Winner Match '.($previousPosition + 1);
+                $sideA = $match ? $sideName($match, 'A') : ($advancers[$round - 1][$previousPosition] ?? 'Winner Match '.$previousPosition);
+                $sideB = $match ? $sideName($match, 'B') : ($advancers[$round - 1][$previousPosition + 1] ?? 'Winner Match '.($previousPosition + 1));
+            }
+
+            $advancer = match ($winnerSide) {
+                'A' => $sideA,
+                'B' => $sideB,
+                default => null,
+            };
+            if ($advancer === 'BYE') {
+                $advancer = null;
+            }
+            $advancers[$round][$position] = $advancer;
+
+            $hasPlaceholder = str($sideA)->startsWith('Winner Match') || str($sideB)->startsWith('Winner Match');
+            $note = '';
+            if (! $match && $round === 1 && $winnerSide && ($sideA === 'BYE' || $sideB === 'BYE')) {
+                $note = 'Advanced by bye';
+            } elseif (! $match) {
+                $note = $hasPlaceholder ? 'Pending previous winner' : 'Awaiting match';
             }
 
             $roundMatches[] = [
@@ -75,7 +101,8 @@
                 'side_a' => $sideA,
                 'side_b' => $sideB,
                 'score' => $scoreText($match),
-                'winner_side' => $match?->status === 'confirmed' ? $match->winner_side : null,
+                'winner_side' => $winnerSide,
+                'note' => $note,
             ];
         }
 
@@ -160,7 +187,18 @@
 
                                 <div class="mt-4 grid" style="gap: {{ 1.25 + ($roundIndex * 1.25) }}rem;">
                                     @foreach ($round['matches'] as $drawMatch)
-                                        <article class="rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
+                                        @php
+                                            $hasPreviousRound = $roundIndex > 0;
+                                            $hasNextRound = $roundIndex < count($bracketRounds) - 1;
+                                        @endphp
+                                        <article class="relative rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
+                                            @if ($hasPreviousRound)
+                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-5 bg-[#d6a31d]/70"></span>
+                                                <span class="pointer-events-none absolute right-[calc(100%+1.25rem)] top-1/2 w-px -translate-y-1/2 bg-[#d6a31d]/45" style="height: {{ 6 + ($roundIndex * 4) }}rem;"></span>
+                                            @endif
+                                            @if ($hasNextRound)
+                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-5 bg-[#d6a31d]/70"></span>
+                                            @endif
                                             <div class="flex items-center justify-between gap-3">
                                                 <p class="text-[11px] font-black uppercase tracking-[.16em] text-blue-950/45">Match {{ $drawMatch['position'] }}</p>
                                                 @if ($drawMatch['match']?->scheduled_at || $drawMatch['match']?->court_label)
@@ -188,8 +226,8 @@
 
                                             @if ($drawMatch['score'])
                                                 <p class="mt-2 text-xs font-bold text-blue-950/60">{{ $drawMatch['score'] }}</p>
-                                            @elseif (! $drawMatch['match'])
-                                                <p class="mt-2 text-xs font-bold text-blue-950/45">Pending previous winner</p>
+                                            @elseif ($drawMatch['note'])
+                                                <p class="mt-2 text-xs font-bold text-blue-950/45">{{ $drawMatch['note'] }}</p>
                                             @endif
                                         </article>
                                     @endforeach
