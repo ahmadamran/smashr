@@ -98,8 +98,8 @@ new class extends Component
     @endauth
 
     <!-- Responsive Navigation Menu -->
-    <div x-show="open" x-transition.opacity class="fixed inset-0 z-50 bg-white sm:hidden" style="display: none;">
-        <div class="flex h-20 items-center justify-between border-b border-blue-950/10 px-6">
+    <div x-show="open" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-white sm:hidden" style="display: none;">
+        <div class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-blue-950/10 bg-white px-6">
             <a href="{{ url('/') }}" wire:navigate @click="open = false">
                 <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="136" height="34" class="h-[34px] w-[136px] object-contain" style="width: 136px; height: 34px;">
             </a>
@@ -110,7 +110,7 @@ new class extends Component
             </button>
         </div>
 
-        <div class="px-6 py-10">
+        <div class="px-6 py-6 pb-32">
             @php
                 $mainLinks = [
                     ['label' => 'Home', 'url' => url('/'), 'active' => request()->is('/')],
@@ -144,16 +144,16 @@ new class extends Component
 
             @foreach ([
                 'Main' => $mainLinks,
-                'Player' => $playerLinks,
                 'Organizer' => $organizerLinks,
+                'Player' => $playerLinks,
                 'Account' => $accountLinks,
             ] as $groupLabel => $links)
                 @if (count($links))
-                    <div class="{{ $loop->first ? '' : 'mt-8' }}">
-                        <p class="mb-3 text-xs font-black uppercase tracking-[.22em] text-blue-950/35">{{ $groupLabel }}</p>
+                    <div class="{{ $loop->first ? '' : 'mt-5' }}">
+                        <p class="mb-2 text-[11px] font-black uppercase tracking-[.22em] text-blue-950/35">{{ $groupLabel }}</p>
                         <div class="divide-y divide-dashed divide-blue-950/15 border-y border-dashed border-blue-950/15">
                             @foreach ($links as $link)
-                                <a href="{{ $link['url'] }}" wire:navigate @click="open = false" class="flex items-center justify-between py-5 text-xl font-black uppercase tracking-[.16em] {{ $link['active'] ? 'text-[#071a80]' : 'text-[#1d3448]' }}">
+                                <a href="{{ $link['url'] }}" wire:navigate @click="open = false" class="flex items-center justify-between py-3.5 text-lg font-black uppercase tracking-[.14em] {{ $link['active'] ? 'text-[#071a80]' : 'text-[#1d3448]' }}">
                                     <span>{{ $link['label'] }}</span>
                                     @if ($link['active'])
                                         <span class="h-2 w-2 rounded-full bg-[#d6a31d]"></span>
