@@ -1,10 +1,11 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
-use App\Models\User;
+use Illuminate\Validation\ValidationException;
+use Livewire\Volt\Volt;
 use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
@@ -12,13 +13,16 @@ use Modules\Players\Models\PlayerProfile;
 use Modules\Ratings\Models\RatingAlgorithm;
 use Modules\Ratings\Services\RatingRecalculationService;
 use Modules\Ratings\Services\RatingService;
+use Modules\Tournaments\DrawEngine\Enums\DrawType;
+use Modules\Tournaments\DrawEngine\Services\DrawGeneratorService;
+use Modules\Tournaments\DrawEngine\Services\DrawMatchPersistenceService;
+use Modules\Tournaments\DrawEngine\Services\ScheduleGeneratorService;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
 use Modules\Tournaments\Services\RoundRobinStandingsService;
 use Modules\Tournaments\Services\TournamentDrawService;
 use Spatie\Permission\Models\Role;
-use Livewire\Volt\Volt;
 
 Route::view('/', 'welcome');
 
@@ -362,6 +366,84 @@ Route::middleware(['auth'])->group(function () {
         }) ?? view('organizer.tournaments.draws', [
             'tournament' => $tournament->load('categories.entrants.players.user.playerProfile', 'categories.matches.players.user.playerProfile'),
         ]))->name('draws');
+
+        Route::get('{tournament:slug}/draw-engine', fn (Tournament $tournament) => tap(null, function () use ($tournament) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+        }) ?? view('organizer.tournaments.draw-engine', [
+            'tournament' => $tournament->load('categories.approvedEntrants.players.user.playerProfile'),
+            'drawTypes' => DrawType::cases(),
+            'preview' => null,
+        ]))->name('draw-engine');
+
+        Route::post('{tournament:slug}/draw-engine/preview', function (Tournament $tournament, DrawGeneratorService $draws, ScheduleGeneratorService $scheduler) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            $data = request()->validate([
+                'event_id' => ['required', 'exists:tournament_categories,id'],
+                'draw_type' => ['required', 'in:single_elimination,double_elimination,round_robin,pool_to_knockout'],
+                'group_size' => ['nullable', 'integer', 'min:3', 'max:8'],
+                'qualifiers_per_pool' => ['nullable', 'integer', 'min:1', 'max:4'],
+                'courts_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'court_label_prefix' => ['nullable', 'string', 'max:40'],
+                'schedule_start_time' => ['nullable', 'date_format:H:i'],
+                'schedule_end_time' => ['nullable', 'date_format:H:i'],
+                'match_duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240'],
+                'rest_minutes' => ['nullable', 'integer', 'min:0', 'max:120'],
+                'max_matches_per_player_per_day' => ['nullable', 'integer', 'min:1', 'max:12'],
+                'days' => ['nullable', 'array'],
+                'days.*.date' => ['nullable', 'date'],
+                'days.*.start_time' => ['nullable', 'date_format:H:i'],
+                'days.*.end_time' => ['nullable', 'date_format:H:i'],
+                'days.*.courts_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'days.*.allowed_stages' => ['nullable', 'array'],
+                'days.*.allowed_rounds' => ['nullable', 'array'],
+            ]);
+            $event = TournamentCategory::where('tournament_id', $tournament->id)->findOrFail($data['event_id']);
+            $preview = $scheduler->schedule($tournament, $draws->preview($event, $data['draw_type'], $data), $data);
+
+            return view('organizer.tournaments.draw-engine', [
+                'tournament' => $tournament->load('categories.approvedEntrants.players.user.playerProfile'),
+                'drawTypes' => DrawType::cases(),
+                'preview' => $preview,
+                'selectedEvent' => $event,
+            ]);
+        })->name('draw-engine.preview');
+
+        Route::post('{tournament:slug}/draw-engine/generate', function (Tournament $tournament, DrawGeneratorService $draws, ScheduleGeneratorService $scheduler, DrawMatchPersistenceService $persistence) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            $data = request()->validate([
+                'event_id' => ['required', 'exists:tournament_categories,id'],
+                'draw_type' => ['required', 'in:single_elimination,double_elimination,round_robin,pool_to_knockout'],
+                'group_size' => ['nullable', 'integer', 'min:3', 'max:8'],
+                'qualifiers_per_pool' => ['nullable', 'integer', 'min:1', 'max:4'],
+                'courts_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'court_label_prefix' => ['nullable', 'string', 'max:40'],
+                'schedule_start_time' => ['nullable', 'date_format:H:i'],
+                'schedule_end_time' => ['nullable', 'date_format:H:i'],
+                'match_duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240'],
+                'rest_minutes' => ['nullable', 'integer', 'min:0', 'max:120'],
+                'max_matches_per_player_per_day' => ['nullable', 'integer', 'min:1', 'max:12'],
+                'confirm_overwrite' => ['sometimes', 'accepted'],
+                'days' => ['nullable', 'array'],
+                'days.*.date' => ['nullable', 'date'],
+                'days.*.start_time' => ['nullable', 'date_format:H:i'],
+                'days.*.end_time' => ['nullable', 'date_format:H:i'],
+                'days.*.courts_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+                'days.*.allowed_stages' => ['nullable', 'array'],
+                'days.*.allowed_rounds' => ['nullable', 'array'],
+            ]);
+            $event = TournamentCategory::where('tournament_id', $tournament->id)->findOrFail($data['event_id']);
+
+            if ($event->matches()->exists() && ! ($data['confirm_overwrite'] ?? false)) {
+                return back()
+                    ->withErrors(['confirm_overwrite' => 'Matches already exist for this event. Confirm safe overwrite to regenerate.'])
+                    ->withInput();
+            }
+
+            $preview = $scheduler->schedule($tournament, $draws->preview($event, $data['draw_type'], $data), $data);
+            $created = $persistence->persist($event->load('tournament'), $preview, (bool) ($data['confirm_overwrite'] ?? false));
+
+            return redirect()->route('organizer.tournaments.matches', $tournament)->with('status', "{$created} draw engine matches generated.");
+        })->name('draw-engine.generate');
 
         Route::post('{tournament:slug}/draws/generate', function (Tournament $tournament, TournamentDrawService $draws) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
