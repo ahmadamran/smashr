@@ -61,7 +61,7 @@
                                 <form method="POST" action="{{ route('admin.users.points.regenerate', $user) }}">@csrf
                                     <button class="w-full rounded px-3 py-2 text-left hover:bg-[#f3f6fb]">Regenerate SMASHR points</button>
                                 </form>
-                                <a href="{{ route('admin.matches') }}?user={{ $user->id }}" class="rounded px-3 py-2 hover:bg-[#f3f6fb]">Add match</a>
+                                <a href="{{ route('admin.matches.create', ['user' => $user->id]) }}" class="rounded px-3 py-2 hover:bg-[#f3f6fb]">Add match</a>
                                 <a href="{{ route('admin.users.edit', $user) }}" class="rounded px-3 py-2 hover:bg-[#f3f6fb]">Link / unlink club</a>
                                 <x-admin.confirm-dialog :action="route('admin.users.destroy', $user)" label="Delete" message="Delete this user?" />
                             </x-admin.action-dropdown>

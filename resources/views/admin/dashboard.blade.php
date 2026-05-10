@@ -34,7 +34,7 @@
                 <a href="{{ route('admin.users.create') }}" class="rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white">Create user</a>
                 <a href="{{ route('admin.clubs.create') }}" class="rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white">Create club</a>
                 <a href="{{ route('admin.tournaments.create') }}" class="rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white">Create tournament</a>
-                <a href="{{ route('admin.matches') }}" class="rounded-md border border-blue-950/10 px-4 py-3 text-xs font-black uppercase text-[#071a80]">Add match</a>
+                <a href="{{ route('admin.matches.create') }}" class="rounded-md border border-blue-950/10 px-4 py-3 text-xs font-black uppercase text-[#071a80]">Add match</a>
                 <form method="POST" action="{{ route('admin.algorithms.recalculate.preview', $activeAlgorithm) }}">@csrf<button class="rounded-md border border-blue-950/10 px-4 py-3 text-xs font-black uppercase text-[#071a80]">Recalculate ratings</button></form>
             </div>
         </section>

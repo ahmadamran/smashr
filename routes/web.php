@@ -719,6 +719,32 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
         'tournaments' => Tournament::orderBy('name')->get(),
         'events' => TournamentCategory::orderBy('name')->get(),
     ]))->name('matches');
+    Route::get('matches/create', fn () => view('admin.matches-create', [
+        'clubs' => Club::orderBy('name')->get(),
+        'tournaments' => Tournament::orderBy('name')->get(),
+        'events' => TournamentCategory::orderBy('name')->get(),
+        'users' => User::with('playerProfile')->orderBy('name')->get(),
+        'preselectedUserId' => request('user'),
+    ]))->name('matches.create');
+    Route::post('matches', function (MatchAdminService $matches) {
+        $data = request()->validate([
+            'format' => ['required', 'in:singles,doubles'],
+            'club_id' => ['nullable', 'exists:clubs,id'],
+            'tournament_id' => ['nullable', 'exists:tournaments,id'],
+            'tournament_category_id' => ['nullable', 'exists:tournament_categories,id'],
+            'side_a_user_id' => ['required', 'exists:users,id', 'different:side_b_user_id'],
+            'side_b_user_id' => ['required', 'exists:users,id'],
+            'played_at' => ['nullable', 'date'],
+            'scheduled_at' => ['nullable', 'date'],
+            'court_label' => ['nullable', 'string', 'max:80'],
+            'estimated_duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240'],
+            'winner_side' => ['required', 'in:A,B'],
+            'status' => ['required', 'in:pending_confirmation,disputed,void'],
+        ]);
+        $match = $matches->create($data, auth()->id());
+
+        return redirect()->route('admin.matches.show', $match)->with('status', 'Match created.');
+    })->name('matches.store');
     Route::get('matches/{match}', fn (MatchRecord $match) => view('admin.matches-show', ['match' => $match->load('players.user.playerProfile', 'club', 'tournament', 'tournamentCategory')]))->name('matches.show');
     Route::get('matches/{match}/edit', fn (MatchRecord $match) => view('admin.matches-form', ['match' => $match->load('players.user.playerProfile'), 'clubs' => Club::orderBy('name')->get(), 'tournaments' => Tournament::orderBy('name')->get(), 'events' => TournamentCategory::orderBy('name')->get()]))->name('matches.edit');
     Route::patch('matches/{match}/confirm', function (MatchRecord $match, RatingService $ratings) {

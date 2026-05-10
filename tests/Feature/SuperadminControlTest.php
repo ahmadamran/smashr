@@ -187,6 +187,7 @@ class SuperadminControlTest extends TestCase
             route('admin.tournaments.show', $tournament),
             route('admin.tournaments.edit', $tournament),
             route('admin.matches'),
+            route('admin.matches.create'),
             route('admin.matches.show', $match),
             route('admin.matches.edit', $match),
             route('admin.algorithms'),
@@ -284,6 +285,35 @@ class SuperadminControlTest extends TestCase
         $this->assertSame('disputed', $match->fresh()->status);
         $this->actingAs($admin)->patch(route('admin.matches.void', $match))->assertRedirect();
         $this->assertSame('void', $match->fresh()->status);
+    }
+
+    public function test_admin_can_create_match(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $sideA = $this->player('Create Match A');
+        $sideB = $this->player('Create Match B');
+        $club = Club::create(['name' => 'Create Match Club', 'slug' => 'create-match-club']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.matches.store'), [
+                'format' => 'singles',
+                'club_id' => $club->id,
+                'side_a_user_id' => $sideA->id,
+                'side_b_user_id' => $sideB->id,
+                'played_at' => now()->toDateString(),
+                'court_label' => 'Court 2',
+                'estimated_duration_minutes' => 30,
+                'winner_side' => 'A',
+                'status' => 'pending_confirmation',
+            ])
+            ->assertRedirect();
+
+        $match = MatchRecord::where('court_label', 'Court 2')->firstOrFail();
+        $this->assertSame('singles', $match->format);
+        $this->assertSame(2, $match->players()->count());
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $sideA->id, 'side' => 'A']);
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $sideB->id, 'side' => 'B']);
     }
 
     private function algorithm(string $version, string $status, array $settings = []): RatingAlgorithm

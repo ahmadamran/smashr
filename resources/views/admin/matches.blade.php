@@ -2,6 +2,9 @@
     <x-slot name="header"><h1 class="text-3xl font-black text-[#071a80]">Matches</h1></x-slot>
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         @include('admin.partials.nav')
+        <div class="mb-6 flex justify-end">
+            <a href="{{ route('admin.matches.create') }}" class="rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white">Create match</a>
+        </div>
         <x-admin.filter-bar>
             <select name="status" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All statuses</option>@foreach(['pending_confirmation','confirmed','disputed','void'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ str_replace('_', ' ', $status) }}</option>@endforeach</select>
             <select name="tournament_id" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All tournaments</option>@foreach($tournaments as $tournament)<option value="{{ $tournament->id }}" @selected(request('tournament_id') == $tournament->id)>{{ $tournament->name }}</option>@endforeach</select>
