@@ -50,4 +50,29 @@ class MatchAdminService
     {
         $match->update(['status' => 'void']);
     }
+
+    public function bulk(array $matchIds, string $action, RatingService $ratings): array
+    {
+        $matches = MatchRecord::whereIn('id', $matchIds)->get();
+        $updated = 0;
+        $failed = 0;
+
+        foreach ($matches as $match) {
+            try {
+                if ($action === 'confirm') {
+                    $ratings->confirmAsAdmin($match);
+                }
+
+                if ($action === 'void') {
+                    $this->void($match);
+                }
+
+                $updated++;
+            } catch (\Throwable) {
+                $failed++;
+            }
+        }
+
+        return ['updated' => $updated, 'failed' => $failed];
+    }
 }

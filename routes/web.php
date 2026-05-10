@@ -745,6 +745,21 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
 
         return redirect()->route('admin.matches.show', $match)->with('status', 'Match created.');
     })->name('matches.store');
+    Route::post('matches/bulk', function (MatchAdminService $matches, RatingService $ratings) {
+        $data = request()->validate([
+            'match_ids' => ['required', 'array', 'min:1'],
+            'match_ids.*' => ['integer', 'exists:matches,id'],
+            'action' => ['required', 'in:confirm,void'],
+        ]);
+        $result = $matches->bulk($data['match_ids'], $data['action'], $ratings);
+        $message = "{$result['updated']} matches {$data['action']}ed.";
+
+        if ($result['failed'] > 0) {
+            $message .= " {$result['failed']} could not be processed.";
+        }
+
+        return back()->with('status', $message);
+    })->name('matches.bulk');
     Route::get('matches/{match}', fn (MatchRecord $match) => view('admin.matches-show', ['match' => $match->load('players.user.playerProfile', 'club', 'tournament', 'tournamentCategory')]))->name('matches.show');
     Route::get('matches/{match}/edit', fn (MatchRecord $match) => view('admin.matches-form', ['match' => $match->load('players.user.playerProfile'), 'clubs' => Club::orderBy('name')->get(), 'tournaments' => Tournament::orderBy('name')->get(), 'events' => TournamentCategory::orderBy('name')->get()]))->name('matches.edit');
     Route::patch('matches/{match}/confirm', function (MatchRecord $match, RatingService $ratings) {

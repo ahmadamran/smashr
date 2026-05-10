@@ -5,6 +5,17 @@
         <div class="mb-6 flex justify-end">
             <a href="{{ route('admin.matches.create') }}" class="rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white">Create match</a>
         </div>
+        <form id="bulk-match-form" method="POST" action="{{ route('admin.matches.bulk') }}" class="mb-6 flex flex-col gap-3 rounded-lg bg-white p-4 shadow sm:flex-row sm:items-center sm:justify-between">
+            @csrf
+            <p class="text-sm font-bold text-blue-950/60">Select matches from the table, then apply a bulk action.</p>
+            <div class="flex flex-col gap-2 sm:flex-row">
+                <select name="action" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                    <option value="confirm">Confirm selected</option>
+                    <option value="void">Void selected</option>
+                </select>
+                <button class="rounded-md bg-[#071a80] px-4 py-2 text-xs font-black uppercase text-white">Apply</button>
+            </div>
+        </form>
         <x-admin.filter-bar>
             <select name="status" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All statuses</option>@foreach(['pending_confirmation','confirmed','disputed','void'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ str_replace('_', ' ', $status) }}</option>@endforeach</select>
             <select name="tournament_id" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All tournaments</option>@foreach($tournaments as $tournament)<option value="{{ $tournament->id }}" @selected(request('tournament_id') == $tournament->id)>{{ $tournament->name }}</option>@endforeach</select>
@@ -12,10 +23,11 @@
             <x-admin.search-input name="court" placeholder="Court" />
         </x-admin.filter-bar>
         <x-admin.table>
-            <thead class="bg-[#071a80] text-white"><tr>@foreach(['Match ID','Tournament','Event','Court','Players','Stage','Round','Status','Scheduled time','Winner','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>
+            <thead class="bg-[#071a80] text-white"><tr><th class="px-4 py-3 text-xs font-black uppercase">Select</th>@foreach(['Match ID','Tournament','Event','Court','Players','Stage','Round','Status','Scheduled time','Winner','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>
             <tbody class="divide-y divide-blue-950/10">
                 @forelse ($matches as $match)
                     <tr class="align-top">
+                        <td class="px-4 py-4"><input form="bulk-match-form" type="checkbox" name="match_ids[]" value="{{ $match->id }}" class="rounded border-blue-950/20 text-[#071a80]"></td>
                         <td class="px-4 py-4 font-black text-[#071a80]">#{{ $match->id }}</td>
                         <td class="px-4 py-4">{{ $match->tournament?->name ?: '-' }}</td>
                         <td class="px-4 py-4">{{ $match->tournamentCategory?->name ?: '-' }}</td>
@@ -38,7 +50,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="11" class="px-4 py-10 text-center font-bold text-blue-950/50">No matches found.</td></tr>
+                    <tr><td colspan="12" class="px-4 py-10 text-center font-bold text-blue-950/50">No matches found.</td></tr>
                 @endforelse
             </tbody>
         </x-admin.table>

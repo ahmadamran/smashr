@@ -316,6 +316,30 @@ class SuperadminControlTest extends TestCase
         $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $sideB->id, 'side' => 'B']);
     }
 
+    public function test_admin_can_bulk_confirm_and_void_matches(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $this->algorithm('bulk-v1', 'active');
+        [$a, $b, $c, $d] = [$this->player('Bulk A'), $this->player('Bulk B'), $this->player('Bulk C'), $this->player('Bulk D')];
+        $first = $this->pendingSinglesMatch($a, $b);
+        $second = $this->pendingSinglesMatch($c, $d);
+        $third = $this->pendingSinglesMatch($a->fresh(), $c->fresh());
+
+        $this->actingAs($admin)
+            ->post(route('admin.matches.bulk'), ['action' => 'confirm', 'match_ids' => [$first->id, $second->id]])
+            ->assertRedirect();
+
+        $this->assertSame('confirmed', $first->fresh()->status);
+        $this->assertSame('confirmed', $second->fresh()->status);
+
+        $this->actingAs($admin)
+            ->post(route('admin.matches.bulk'), ['action' => 'void', 'match_ids' => [$third->id]])
+            ->assertRedirect();
+
+        $this->assertSame('void', $third->fresh()->status);
+    }
+
     private function algorithm(string $version, string $status, array $settings = []): RatingAlgorithm
     {
         return RatingAlgorithm::create([
@@ -341,6 +365,22 @@ class SuperadminControlTest extends TestCase
         $match->players()->create(['user_id' => $loser->id, 'side' => 'B', 'position' => 1]);
 
         return app(RatingService::class)->confirmForUser($match, $loser->id);
+    }
+
+    private function pendingSinglesMatch(User $winner, User $loser): MatchRecord
+    {
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $winner->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 12], ['a' => 21, 'b' => 16]],
+            'winner_side' => 'A',
+        ]);
+        $match->players()->create(['user_id' => $winner->id, 'side' => 'A', 'position' => 1]);
+        $match->players()->create(['user_id' => $loser->id, 'side' => 'B', 'position' => 1]);
+
+        return $match;
     }
 
     private function player(string $name): User
