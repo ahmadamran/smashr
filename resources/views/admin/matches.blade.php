@@ -7,7 +7,16 @@
         </div>
         <form id="bulk-match-form" method="POST" action="{{ route('admin.matches.bulk') }}" class="mb-6 flex flex-col gap-3 rounded-lg bg-white p-4 shadow sm:flex-row sm:items-center sm:justify-between">
             @csrf
-            <p class="text-sm font-bold text-blue-950/60">Select matches from the table, then apply a bulk action.</p>
+            @foreach (['status', 'tournament_id', 'event_id', 'court'] as $filter)
+                <input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">
+            @endforeach
+            <div>
+                <p class="text-sm font-bold text-blue-950/60">Select matches from the table, then apply a bulk action.</p>
+                <label class="mt-2 flex items-center gap-2 text-xs font-black uppercase text-[#071a80]">
+                    <input type="checkbox" name="all_filtered" value="1" class="rounded border-blue-950/20 text-[#071a80]">
+                    Apply to all filtered results across pages
+                </label>
+            </div>
             <div class="flex flex-col gap-2 sm:flex-row">
                 <select name="action" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
                     <option value="confirm">Confirm selected</option>
@@ -23,11 +32,11 @@
             <x-admin.search-input name="court" placeholder="Court" />
         </x-admin.filter-bar>
         <x-admin.table>
-            <thead class="bg-[#071a80] text-white"><tr><th class="px-4 py-3 text-xs font-black uppercase">Select</th>@foreach(['Match ID','Tournament','Event','Court','Players','Stage','Round','Status','Scheduled time','Winner','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>
+            <thead class="bg-[#071a80] text-white"><tr><th class="px-4 py-3 text-xs font-black uppercase"><input type="checkbox" data-select-all="[data-match-checkbox]" class="rounded border-white/40 text-[#d6a31d]"></th>@foreach(['Match ID','Tournament','Event','Court','Players','Stage','Round','Status','Scheduled time','Winner','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>
             <tbody class="divide-y divide-blue-950/10">
                 @forelse ($matches as $match)
                     <tr class="align-top">
-                        <td class="px-4 py-4"><input form="bulk-match-form" type="checkbox" name="match_ids[]" value="{{ $match->id }}" class="rounded border-blue-950/20 text-[#071a80]"></td>
+                        <td class="px-4 py-4"><input form="bulk-match-form" data-match-checkbox type="checkbox" name="match_ids[]" value="{{ $match->id }}" class="rounded border-blue-950/20 text-[#071a80]"></td>
                         <td class="px-4 py-4 font-black text-[#071a80]">#{{ $match->id }}</td>
                         <td class="px-4 py-4">{{ $match->tournament?->name ?: '-' }}</td>
                         <td class="px-4 py-4">{{ $match->tournamentCategory?->name ?: '-' }}</td>

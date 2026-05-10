@@ -340,6 +340,47 @@ class SuperadminControlTest extends TestCase
         $this->assertSame('void', $third->fresh()->status);
     }
 
+    public function test_admin_can_apply_bulk_action_to_all_filtered_matches_across_pages(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $submitter = $this->player('Filtered Submitter');
+
+        foreach (range(1, 22) as $index) {
+            MatchRecord::create([
+                'format' => 'singles',
+                'submitted_by' => $submitter->id,
+                'status' => 'pending_confirmation',
+                'played_at' => now()->toDateString(),
+                'score' => [],
+                'winner_side' => 'A',
+                'court_label' => 'Filtered Court',
+            ]);
+        }
+
+        MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $submitter->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [],
+            'winner_side' => 'A',
+            'court_label' => 'Other Court',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.matches.bulk'), [
+                'action' => 'void',
+                'all_filtered' => 1,
+                'status' => 'pending_confirmation',
+                'court' => 'Filtered Court',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(22, MatchRecord::where('court_label', 'Filtered Court')->where('status', 'void')->count());
+        $this->assertSame('pending_confirmation', MatchRecord::where('court_label', 'Other Court')->firstOrFail()->status);
+    }
+
     private function algorithm(string $version, string $status, array $settings = []): RatingAlgorithm
     {
         return RatingAlgorithm::create([

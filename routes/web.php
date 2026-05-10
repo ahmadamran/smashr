@@ -747,11 +747,30 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
     })->name('matches.store');
     Route::post('matches/bulk', function (MatchAdminService $matches, RatingService $ratings) {
         $data = request()->validate([
-            'match_ids' => ['required', 'array', 'min:1'],
+            'match_ids' => ['nullable', 'array'],
             'match_ids.*' => ['integer', 'exists:matches,id'],
             'action' => ['required', 'in:confirm,void'],
+            'all_filtered' => ['nullable', 'boolean'],
+            'status' => ['nullable', 'in:pending_confirmation,confirmed,disputed,void'],
+            'tournament_id' => ['nullable', 'exists:tournaments,id'],
+            'event_id' => ['nullable', 'exists:tournament_categories,id'],
+            'court' => ['nullable', 'string', 'max:80'],
         ]);
-        $result = $matches->bulk($data['match_ids'], $data['action'], $ratings);
+        $matchIds = request()->boolean('all_filtered')
+            ? MatchRecord::query()
+                ->when($data['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+                ->when($data['tournament_id'] ?? null, fn ($query, $id) => $query->where('tournament_id', $id))
+                ->when($data['event_id'] ?? null, fn ($query, $id) => $query->where('tournament_category_id', $id))
+                ->when($data['court'] ?? null, fn ($query, $court) => $query->where('court_label', 'like', "%{$court}%"))
+                ->pluck('id')
+                ->all()
+            : ($data['match_ids'] ?? []);
+
+        if (empty($matchIds)) {
+            throw ValidationException::withMessages(['match_ids' => 'Select at least one match or choose all filtered results.']);
+        }
+
+        $result = $matches->bulk($matchIds, $data['action'], $ratings);
         $message = "{$result['updated']} matches {$data['action']}ed.";
 
         if ($result['failed'] > 0) {

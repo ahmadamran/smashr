@@ -36,5 +36,27 @@ const initPhoneInputs = () => {
     });
 };
 
-document.addEventListener('DOMContentLoaded', initPhoneInputs);
-document.addEventListener('livewire:navigated', initPhoneInputs);
+const initBulkSelectors = () => {
+    document.querySelectorAll('[data-select-all]').forEach((checkbox) => {
+        if (checkbox.dataset.selectReady === '1') {
+            return;
+        }
+
+        checkbox.dataset.selectReady = '1';
+        const target = checkbox.dataset.selectAll;
+
+        checkbox.addEventListener('change', () => {
+            document.querySelectorAll(target).forEach((input) => {
+                input.checked = checkbox.checked;
+            });
+        });
+    });
+};
+
+const initSmashr = () => {
+    initPhoneInputs();
+    initBulkSelectors();
+};
+
+document.addEventListener('DOMContentLoaded', initSmashr);
+document.addEventListener('livewire:navigated', initSmashr);
