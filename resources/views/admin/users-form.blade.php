@@ -15,6 +15,10 @@
                 <label class="font-bold text-[#071a80]">{{ $user ? 'New password' : 'Password' }}
                     <input name="password" type="password" class="mt-1 w-full rounded-md border-blue-950/10">
                 </label>
+                <x-admin.phone-input
+                    :value="$user?->playerProfile?->phone_number"
+                    :country="$user?->playerProfile?->country ?: 'Malaysia'"
+                />
                 <label class="font-bold text-[#071a80]">Club
                     <select name="club_id" class="mt-1 w-full rounded-md border-blue-950/10">
                         <option value="">Independent</option>

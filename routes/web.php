@@ -572,6 +572,8 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:160', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
+            'phone_number' => ['nullable', 'string', 'max:40'],
+            'country' => ['nullable', 'string', 'max:80'],
             'club_id' => ['nullable', 'exists:clubs,id'],
             'smashr_points' => ['nullable', 'integer'],
         ]);
@@ -589,6 +591,8 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:160', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'string', 'min:8'],
+            'phone_number' => ['nullable', 'string', 'max:40'],
+            'country' => ['nullable', 'string', 'max:80'],
             'club_id' => ['nullable', 'exists:clubs,id'],
         ]);
         $users->update($user, $data);

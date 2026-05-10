@@ -20,6 +20,8 @@ class UserAdminService
         $user->playerProfile()->create([
             'display_name' => $data['name'],
             'slug' => Str::slug($data['name']).'-'.$user->id,
+            'phone_number' => $data['phone_number'] ?? null,
+            'country' => $data['country'] ?? 'Malaysia',
             'smashr_points' => (int) ($data['smashr_points'] ?? 0),
         ]);
 
@@ -39,7 +41,12 @@ class UserAdminService
         $user->update($payload);
         $user->playerProfile()->updateOrCreate(
             ['user_id' => $user->id],
-            ['display_name' => $data['name'], 'slug' => $user->playerProfile?->slug ?? Str::slug($data['name']).'-'.$user->id],
+            [
+                'display_name' => $data['name'],
+                'slug' => $user->playerProfile?->slug ?? Str::slug($data['name']).'-'.$user->id,
+                'phone_number' => $data['phone_number'] ?? null,
+                'country' => $data['country'] ?? 'Malaysia',
+            ],
         );
         $this->syncClub($user, $data['club_id'] ?? null);
 

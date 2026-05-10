@@ -207,19 +207,28 @@ class SuperadminControlTest extends TestCase
                 'name' => 'Managed User',
                 'email' => 'managed@example.com',
                 'password' => 'password123',
+                'phone_number' => '+60123456789',
+                'country' => 'Malaysia',
                 'smashr_points' => 15,
             ])
             ->assertRedirect(route('admin.users'));
 
         $user = User::where('email', 'managed@example.com')->firstOrFail();
         $this->assertSame(15, $user->playerProfile->smashr_points);
+        $this->assertSame('+60123456789', $user->playerProfile->phone_number);
+        $this->assertSame('Malaysia', $user->playerProfile->country);
 
         $this->actingAs($admin)
             ->patch(route('admin.users.update', $user), [
                 'name' => 'Managed User Updated',
                 'email' => 'managed-updated@example.com',
+                'phone_number' => '+6588887777',
+                'country' => 'Singapore',
             ])
             ->assertRedirect(route('admin.users'));
+
+        $this->assertSame('+6588887777', $user->playerProfile->fresh()->phone_number);
+        $this->assertSame('Singapore', $user->playerProfile->fresh()->country);
 
         $this->actingAs($admin)
             ->post(route('admin.users.points', $user), ['mode' => 'add', 'points' => 20, 'reason' => 'Manual admin bonus'])

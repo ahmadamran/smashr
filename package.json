@@ -15,5 +15,8 @@
         "postcss": "^8.4.31",
         "tailwindcss": "^4.2.4",
         "vite": "^8.0.0"
+    },
+    "dependencies": {
+        "intl-tel-input": "^28.0.5"
     }
 }

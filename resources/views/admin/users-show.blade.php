@@ -8,6 +8,7 @@
                 <h2 class="mt-2 text-2xl font-black text-[#071a80]">{{ $user->email }}</h2>
                 <dl class="mt-5 grid gap-4 sm:grid-cols-2">
                     <div><dt class="text-xs font-black uppercase text-blue-950/50">Club</dt><dd class="font-bold">{{ $user->clubs->pluck('name')->join(', ') ?: 'Independent' }}</dd></div>
+                    <div><dt class="text-xs font-black uppercase text-blue-950/50">Phone</dt><dd class="font-bold">{{ $user->playerProfile?->phone_number ?: 'Not set' }}</dd></div>
                     <div><dt class="text-xs font-black uppercase text-blue-950/50">Role</dt><dd class="font-bold">{{ $user->roles->pluck('name')->join(', ') ?: 'Player' }}</dd></div>
                     <div><dt class="text-xs font-black uppercase text-blue-950/50">Status</dt><dd><x-admin.status-badge :status="$user->suspended_at ? 'suspended' : 'active'" /></dd></div>
                     <div><dt class="text-xs font-black uppercase text-blue-950/50">Rating</dt><dd class="font-bold">{{ $user->playerProfile?->singles_rating ?? '3.500' }} / {{ $user->playerProfile?->doubles_rating ?? '3.500' }}</dd></div>
