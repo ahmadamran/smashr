@@ -155,6 +155,128 @@ class SuperadminControlTest extends TestCase
         $this->assertSame(0.420, (float) $algorithm->fresh()->settings['base_delta']);
     }
 
+    public function test_admin_crud_pages_render_as_table_based_screens(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $club = Club::create(['name' => 'Admin Club', 'slug' => 'admin-club']);
+        $tournament = Tournament::create(['club_id' => $club->id, 'organizer_id' => $admin->id, 'name' => 'Admin Open', 'slug' => 'admin-open', 'status' => 'published']);
+        $player = $this->player('Admin Page Player');
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $player->id,
+            'tournament_id' => $tournament->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [],
+            'winner_side' => 'A',
+        ]);
+        $algorithm = $this->algorithm('admin-v2', 'draft');
+
+        foreach ([
+            route('admin.users'),
+            route('admin.users.create'),
+            route('admin.users.show', $player),
+            route('admin.users.edit', $player),
+            route('admin.clubs'),
+            route('admin.clubs.create'),
+            route('admin.clubs.show', $club),
+            route('admin.clubs.edit', $club),
+            route('admin.tournaments'),
+            route('admin.tournaments.create'),
+            route('admin.tournaments.show', $tournament),
+            route('admin.tournaments.edit', $tournament),
+            route('admin.matches'),
+            route('admin.matches.show', $match),
+            route('admin.matches.edit', $match),
+            route('admin.algorithms'),
+            route('admin.algorithms.create'),
+            route('admin.algorithms.edit', $algorithm),
+        ] as $url) {
+            $this->actingAs($admin)->get($url)->assertOk();
+        }
+    }
+
+    public function test_admin_user_crud_and_smashr_points_adjustment(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.store'), [
+                'name' => 'Managed User',
+                'email' => 'managed@example.com',
+                'password' => 'password123',
+                'smashr_points' => 15,
+            ])
+            ->assertRedirect(route('admin.users'));
+
+        $user = User::where('email', 'managed@example.com')->firstOrFail();
+        $this->assertSame(15, $user->playerProfile->smashr_points);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.users.update', $user), [
+                'name' => 'Managed User Updated',
+                'email' => 'managed-updated@example.com',
+            ])
+            ->assertRedirect(route('admin.users'));
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.points', $user), ['mode' => 'add', 'points' => 20, 'reason' => 'Manual admin bonus'])
+            ->assertRedirect();
+
+        $this->assertSame(35, $user->playerProfile->fresh()->smashr_points);
+        $this->assertDatabaseHas('smashr_point_adjustments', ['user_id' => $user->id, 'before_points' => 15, 'after_points' => 35]);
+
+        $this->actingAs($admin)->delete(route('admin.users.destroy', $user))->assertRedirect(route('admin.users'));
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
+
+    public function test_admin_algorithm_create_activate_duplicate_and_delete_draft(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $active = $this->algorithm('active-v1', 'active');
+        $settings = RatingAlgorithm::DEFAULT_SETTINGS;
+
+        $this->actingAs($admin)
+            ->post(route('admin.algorithms.store'), ['name' => 'Next Algo', 'version' => 'next-v1', 'settings' => $settings])
+            ->assertRedirect(route('admin.algorithms'));
+
+        $draft = RatingAlgorithm::where('version', 'next-v1')->firstOrFail();
+        $this->actingAs($admin)->patch(route('admin.algorithms.activate', $draft))->assertRedirect();
+
+        $this->assertSame('active', $draft->fresh()->status);
+        $this->assertSame('archived', $active->fresh()->status);
+
+        $this->actingAs($admin)->post(route('admin.algorithms.duplicate', $draft))->assertRedirect();
+        $copy = RatingAlgorithm::where('version', 'like', 'next-v1-copy-%')->firstOrFail();
+        $this->actingAs($admin)->delete(route('admin.algorithms.destroy', $copy))->assertRedirect(route('admin.algorithms'));
+        $this->assertDatabaseMissing('rating_algorithms', ['id' => $copy->id]);
+    }
+
+    public function test_admin_match_filtering_and_actions(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $player = $this->player('Filter Winner');
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $player->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [],
+            'winner_side' => 'A',
+            'court_label' => 'Court 8',
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.matches', ['status' => 'pending_confirmation', 'court' => 'Court 8']))->assertOk()->assertSee('Court 8');
+        $this->actingAs($admin)->patch(route('admin.matches.dispute', $match))->assertRedirect();
+        $this->assertSame('disputed', $match->fresh()->status);
+        $this->actingAs($admin)->patch(route('admin.matches.void', $match))->assertRedirect();
+        $this->assertSame('void', $match->fresh()->status);
+    }
+
     private function algorithm(string $version, string $status, array $settings = []): RatingAlgorithm
     {
         return RatingAlgorithm::create([

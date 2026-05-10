@@ -21,6 +21,7 @@ use Modules\Clubs\Models\Club;
     'postal_code',
     'preferred_hand',
     'primary_format',
+    'smashr_points',
     'singles_rating',
     'doubles_rating',
     'singles_matches',

@@ -1,6 +1,13 @@
 <?php
 
 use App\Models\User;
+use App\Services\Admin\AdminDashboardService;
+use App\Services\Admin\AlgorithmAdminService;
+use App\Services\Admin\ClubAdminService;
+use App\Services\Admin\MatchAdminService;
+use App\Services\Admin\SmashrPointsService;
+use App\Services\Admin\TournamentAdminService;
+use App\Services\Admin\UserAdminService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -11,6 +18,7 @@ use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Ratings\Models\RatingAlgorithm;
+use Modules\Ratings\Models\RatingEvent;
 use Modules\Ratings\Services\RatingRecalculationService;
 use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\DrawEngine\Enums\DrawType;
@@ -22,7 +30,6 @@ use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
 use Modules\Tournaments\Services\RoundRobinStandingsService;
 use Modules\Tournaments\Services\TournamentDrawService;
-use Spatie\Permission\Models\Role;
 
 Route::view('/', 'welcome');
 
@@ -545,74 +552,118 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', fn () => view('admin.dashboard', [
-        'usersCount' => User::count(),
-        'clubsCount' => Club::count(),
-        'tournamentsCount' => Tournament::count(),
-        'pendingMatchesCount' => MatchRecord::whereIn('status', ['pending_confirmation', 'disputed'])->count(),
-        'activeAlgorithm' => RatingAlgorithm::active(),
-    ]))->name('dashboard');
+    Route::get('/', fn (AdminDashboardService $dashboard) => view('admin.dashboard', $dashboard->data()))->name('dashboard');
 
     Route::get('users', fn () => view('admin.users', [
-        'users' => User::with('playerProfile', 'clubs', 'roles')->latest()->paginate(20),
+        'users' => User::with('playerProfile', 'clubs', 'roles')
+            ->withCount('matchPlayers')
+            ->when(request('search'), fn ($query, $search) => $query->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
+            ->when(request('status') === 'active', fn ($query) => $query->whereNull('suspended_at'))
+            ->when(request('status') === 'suspended', fn ($query) => $query->whereNotNull('suspended_at'))
+            ->when(request('role') === 'admin', fn ($query) => $query->role('superadmin'))
+            ->when(request('sort') === 'name', fn ($query) => $query->orderBy('name'), fn ($query) => $query->latest())
+            ->paginate(20)
+            ->withQueryString(),
     ]))->name('users');
 
-    Route::patch('users/{user}/superadmin', function (User $user) {
-        $role = Role::findOrCreate('superadmin', 'web');
-        request()->boolean('enabled') ? $user->assignRole($role) : $user->removeRole($role);
+    Route::get('users/create', fn () => view('admin.users-form', ['user' => null, 'clubs' => Club::orderBy('name')->get()]))->name('users.create');
+    Route::post('users', function (UserAdminService $users) {
+        $data = request()->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:160', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
+            'club_id' => ['nullable', 'exists:clubs,id'],
+            'smashr_points' => ['nullable', 'integer'],
+        ]);
+        $users->create($data);
+
+        return redirect()->route('admin.users')->with('status', 'User created.');
+    })->name('users.store');
+    Route::get('users/{user}', fn (User $user) => view('admin.users-show', [
+        'user' => $user->load('playerProfile', 'clubs', 'roles', 'smashrPointAdjustments.admin'),
+        'ratingEvents' => RatingEvent::where('user_id', $user->id)->latest()->limit(10)->get(),
+    ]))->name('users.show');
+    Route::get('users/{user}/edit', fn (User $user) => view('admin.users-form', ['user' => $user->load('playerProfile', 'clubs'), 'clubs' => Club::orderBy('name')->get()]))->name('users.edit');
+    Route::patch('users/{user}', function (User $user, UserAdminService $users) {
+        $data = request()->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:160', 'unique:users,email,'.$user->id],
+            'password' => ['nullable', 'string', 'min:8'],
+            'club_id' => ['nullable', 'exists:clubs,id'],
+        ]);
+        $users->update($user, $data);
+
+        return redirect()->route('admin.users')->with('status', 'User updated.');
+    })->name('users.update');
+    Route::delete('users/{user}', function (User $user) {
+        abort_if($user->id === auth()->id(), 422, 'You cannot delete your own account.');
+        $user->delete();
+
+        return redirect()->route('admin.users')->with('status', 'User deleted.');
+    })->name('users.destroy');
+    Route::patch('users/{user}/superadmin', function (User $user, UserAdminService $users) {
+        $users->setSuperadmin($user, request()->boolean('enabled'));
 
         return back()->with('status', 'User role updated.');
     })->name('users.superadmin');
-
-    Route::patch('users/{user}/suspension', function (User $user) {
-        $user->forceFill(['suspended_at' => request()->boolean('suspended') ? now() : null])->save();
+    Route::patch('users/{user}/suspension', function (User $user, UserAdminService $users) {
+        $users->setSuspended($user, request()->boolean('suspended'));
 
         return back()->with('status', 'User suspension updated.');
     })->name('users.suspension');
+    Route::post('users/{user}/points', function (User $user, SmashrPointsService $points) {
+        $data = request()->validate([
+            'mode' => ['required', 'in:set,add,deduct'],
+            'points' => ['required', 'integer', 'min:0'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+        $adjustment = $points->adjust($user, $data['mode'], (int) $data['points'], $data['reason'], auth()->id());
+
+        return back()->with('status', "SMASHR points updated from {$adjustment->before_points} to {$adjustment->after_points}.");
+    })->name('users.points');
+    Route::post('users/{user}/ratings/regenerate', function (User $user, RatingRecalculationService $recalc) {
+        $result = $recalc->apply(RatingAlgorithm::active());
+
+        return back()->with('recalc_preview', $result)->with('status', 'Ratings regenerated.');
+    })->name('users.ratings.regenerate');
+    Route::post('users/{user}/points/regenerate', function (User $user, SmashrPointsService $points) {
+        $adjustment = $points->regenerate($user, auth()->id());
+
+        return back()->with('status', "SMASHR points regenerated from {$adjustment->before_points} to {$adjustment->after_points}.");
+    })->name('users.points.regenerate');
 
     Route::get('clubs', fn () => view('admin.clubs', [
-        'clubs' => Club::with('members.playerProfile')->latest()->paginate(20),
+        'clubs' => Club::withCount(['members', 'tournaments'])
+            ->when(request('search'), fn ($query, $search) => $query->where('name', 'like', "%{$search}%"))
+            ->latest()
+            ->paginate(20)
+            ->withQueryString(),
     ]))->name('clubs');
+    Route::get('clubs/create', fn () => view('admin.clubs-form', ['club' => null]))->name('clubs.create');
+    Route::post('clubs', function (ClubAdminService $clubs) {
+        $data = request()->validate(['name' => ['required', 'string', 'max:120'], 'country' => ['nullable', 'string', 'max:80'], 'state' => ['nullable', 'string', 'max:80'], 'city' => ['nullable', 'string', 'max:80'], 'description' => ['nullable', 'string', 'max:1000']]);
+        $clubs->create($data);
 
-    Route::post('clubs', function () {
-        $data = request()->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'country' => ['nullable', 'string', 'max:80'],
-            'state' => ['nullable', 'string', 'max:80'],
-            'city' => ['nullable', 'string', 'max:80'],
-            'description' => ['nullable', 'string', 'max:1000'],
-        ]);
-        Club::create([...$data, 'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(4))]);
-
-        return back()->with('status', 'Club created.');
+        return redirect()->route('admin.clubs')->with('status', 'Club created.');
     })->name('clubs.store');
+    Route::get('clubs/{club}', fn (Club $club) => view('admin.clubs-show', ['club' => $club->load('members.playerProfile')->loadCount('members', 'tournaments')]))->name('clubs.show');
+    Route::get('clubs/{club}/edit', fn (Club $club) => view('admin.clubs-form', ['club' => $club]))->name('clubs.edit');
+    Route::patch('clubs/{club}', function (Club $club, ClubAdminService $clubs) {
+        $clubs->update($club, request()->validate(['name' => ['required', 'string', 'max:120'], 'country' => ['nullable', 'string', 'max:80'], 'state' => ['nullable', 'string', 'max:80'], 'city' => ['nullable', 'string', 'max:80'], 'description' => ['nullable', 'string', 'max:1000']]));
 
-    Route::patch('clubs/{club}', function (Club $club) {
-        $data = request()->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'country' => ['nullable', 'string', 'max:80'],
-            'state' => ['nullable', 'string', 'max:80'],
-            'city' => ['nullable', 'string', 'max:80'],
-            'description' => ['nullable', 'string', 'max:1000'],
-        ]);
-        $club->update($data);
-
-        return back()->with('status', 'Club updated.');
+        return redirect()->route('admin.clubs')->with('status', 'Club updated.');
     })->name('clubs.update');
-
     Route::delete('clubs/{club}', function (Club $club) {
         $club->delete();
 
-        return back()->with('status', 'Club deleted.');
+        return redirect()->route('admin.clubs')->with('status', 'Club deleted.');
     })->name('clubs.destroy');
-
-    Route::post('clubs/{club}/members', function (Club $club) {
+    Route::post('clubs/{club}/members', function (Club $club, ClubAdminService $clubs) {
         $data = request()->validate(['email' => ['required', 'email', 'exists:users,email']]);
-        $club->members()->syncWithoutDetaching([User::where('email', $data['email'])->value('id')]);
+        $clubs->addMember($club, $data['email']);
 
         return back()->with('status', 'Club member added.');
     })->name('clubs.members.store');
-
     Route::delete('clubs/{club}/members/{user}', function (Club $club, User $user) {
         $club->members()->detach($user);
 
@@ -620,150 +671,114 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
     })->name('clubs.members.destroy');
 
     Route::get('tournaments', fn () => view('admin.tournaments', [
-        'tournaments' => Tournament::with('club', 'matches')->latest()->paginate(20),
-        'clubs' => Club::orderBy('name')->get(),
-    ]))->name('tournaments');
-
-    Route::post('tournaments', function () {
-        $data = request()->validate([
-            'club_id' => ['nullable', 'exists:clubs,id'],
-            'name' => ['required', 'string', 'max:140'],
-            'country' => ['nullable', 'string', 'max:80'],
-            'state' => ['nullable', 'string', 'max:80'],
-            'city' => ['nullable', 'string', 'max:80'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'status' => ['required', 'in:draft,published,archived'],
-        ]);
-        Tournament::create([...$data, 'slug' => Str::slug($data['name']).'-'.Str::lower(Str::random(4))]);
-
-        return back()->with('status', 'Tournament created.');
-    })->name('tournaments.store');
-
-    Route::patch('tournaments/{tournament}', function (Tournament $tournament) {
-        $data = request()->validate([
-            'club_id' => ['nullable', 'exists:clubs,id'],
-            'name' => ['required', 'string', 'max:140'],
-            'country' => ['nullable', 'string', 'max:80'],
-            'state' => ['nullable', 'string', 'max:80'],
-            'city' => ['nullable', 'string', 'max:80'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'status' => ['required', 'in:draft,published,archived'],
-        ]);
-        $tournament->update($data);
-
-        return back()->with('status', 'Tournament updated.');
-    })->name('tournaments.update');
-
-    Route::get('matches', fn () => view('admin.matches', [
-        'matches' => MatchRecord::with('players.user.playerProfile', 'club', 'tournament')
+        'tournaments' => Tournament::with('club')->withCount('matches')
+            ->when(request('search'), fn ($query, $search) => $query->where('name', 'like', "%{$search}%"))
             ->when(request('status'), fn ($query, $status) => $query->where('status', $status))
             ->latest()
             ->paginate(20)
             ->withQueryString(),
-        'clubs' => Club::orderBy('name')->get(),
-        'tournaments' => Tournament::orderBy('name')->get(),
-    ]))->name('matches');
+    ]))->name('tournaments');
+    Route::get('tournaments/create', fn () => view('admin.tournaments-form', ['tournament' => null, 'clubs' => Club::orderBy('name')->get()]))->name('tournaments.create');
+    Route::post('tournaments', function (TournamentAdminService $tournaments) {
+        $data = request()->validate(['club_id' => ['nullable', 'exists:clubs,id'], 'name' => ['required', 'string', 'max:140'], 'country' => ['nullable', 'string', 'max:80'], 'state' => ['nullable', 'string', 'max:80'], 'city' => ['nullable', 'string', 'max:80'], 'venue' => ['nullable', 'string', 'max:160'], 'starts_at' => ['nullable', 'date'], 'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'], 'status' => ['required', 'in:draft,published,archived']]);
+        $tournaments->create($data, auth()->id());
 
+        return redirect()->route('admin.tournaments')->with('status', 'Tournament created.');
+    })->name('tournaments.store');
+    Route::get('tournaments/{tournament}', fn (Tournament $tournament) => view('admin.tournaments-show', ['tournament' => $tournament->load('club', 'categories')->loadCount('matches')]))->name('tournaments.show');
+    Route::get('tournaments/{tournament}/edit', fn (Tournament $tournament) => view('admin.tournaments-form', ['tournament' => $tournament, 'clubs' => Club::orderBy('name')->get()]))->name('tournaments.edit');
+    Route::patch('tournaments/{tournament}', function (Tournament $tournament, TournamentAdminService $tournaments) {
+        $tournaments->update($tournament, request()->validate(['club_id' => ['nullable', 'exists:clubs,id'], 'name' => ['required', 'string', 'max:140'], 'country' => ['nullable', 'string', 'max:80'], 'state' => ['nullable', 'string', 'max:80'], 'city' => ['nullable', 'string', 'max:80'], 'venue' => ['nullable', 'string', 'max:160'], 'starts_at' => ['nullable', 'date'], 'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'], 'status' => ['required', 'in:draft,published,archived']]));
+
+        return redirect()->route('admin.tournaments')->with('status', 'Tournament updated.');
+    })->name('tournaments.update');
+    Route::patch('tournaments/{tournament}/archive', function (Tournament $tournament, TournamentAdminService $tournaments) {
+        $tournaments->archive($tournament);
+
+        return back()->with('status', 'Tournament archived.');
+    })->name('tournaments.archive');
+    Route::delete('tournaments/{tournament}', function (Tournament $tournament) {
+        $tournament->delete();
+
+        return redirect()->route('admin.tournaments')->with('status', 'Tournament deleted.');
+    })->name('tournaments.destroy');
+
+    Route::get('matches', fn () => view('admin.matches', [
+        'matches' => MatchRecord::with('players.user.playerProfile', 'club', 'tournament', 'tournamentCategory')
+            ->when(request('status'), fn ($query, $status) => $query->where('status', $status))
+            ->when(request('tournament_id'), fn ($query, $id) => $query->where('tournament_id', $id))
+            ->when(request('event_id'), fn ($query, $id) => $query->where('tournament_category_id', $id))
+            ->when(request('court'), fn ($query, $court) => $query->where('court_label', 'like', "%{$court}%"))
+            ->latest()
+            ->paginate(20)
+            ->withQueryString(),
+        'tournaments' => Tournament::orderBy('name')->get(),
+        'events' => TournamentCategory::orderBy('name')->get(),
+    ]))->name('matches');
+    Route::get('matches/{match}', fn (MatchRecord $match) => view('admin.matches-show', ['match' => $match->load('players.user.playerProfile', 'club', 'tournament', 'tournamentCategory')]))->name('matches.show');
+    Route::get('matches/{match}/edit', fn (MatchRecord $match) => view('admin.matches-form', ['match' => $match->load('players.user.playerProfile'), 'clubs' => Club::orderBy('name')->get(), 'tournaments' => Tournament::orderBy('name')->get(), 'events' => TournamentCategory::orderBy('name')->get()]))->name('matches.edit');
     Route::patch('matches/{match}/confirm', function (MatchRecord $match, RatingService $ratings) {
         $ratings->confirmAsAdmin($match);
 
         return back()->with('status', 'Match confirmed.');
     })->name('matches.confirm');
+    Route::patch('matches/{match}/dispute', function (MatchRecord $match, MatchAdminService $matches) {
+        $matches->markDisputed($match);
 
-    Route::patch('matches/{match}/void', function (MatchRecord $match) {
-        $match->forceFill(['status' => 'void'])->save();
+        return back()->with('status', 'Match disputed.');
+    })->name('matches.dispute');
+    Route::patch('matches/{match}/void', function (MatchRecord $match, MatchAdminService $matches) {
+        $matches->void($match);
 
         return back()->with('status', 'Match voided.');
     })->name('matches.void');
+    Route::patch('matches/{match}', function (MatchRecord $match, RatingService $ratings, MatchAdminService $matches) {
+        $data = request()->validate(['club_id' => ['nullable', 'exists:clubs,id'], 'tournament_id' => ['nullable', 'exists:tournaments,id'], 'tournament_category_id' => ['nullable', 'exists:tournament_categories,id'], 'played_at' => ['nullable', 'date'], 'scheduled_at' => ['nullable', 'date'], 'court_label' => ['nullable', 'string', 'max:80'], 'winner_side' => ['required', 'in:A,B'], 'status' => ['required', 'in:pending_confirmation,confirmed,disputed,void']]);
+        $matches->update($match, $data, $ratings);
 
-    Route::patch('matches/{match}', function (MatchRecord $match, RatingService $ratings) {
-        $data = request()->validate([
-            'club_id' => ['nullable', 'exists:clubs,id'],
-            'tournament_id' => ['nullable', 'exists:tournaments,id'],
-            'played_at' => ['required', 'date'],
-            'winner_side' => ['required', 'in:A,B'],
-            'status' => ['required', 'in:pending_confirmation,confirmed,disputed,void'],
-        ]);
-
-        $match->update($data);
-
-        if ($data['status'] === 'confirmed') {
-            $ratings->confirmAsAdmin($match->refresh());
-        }
-
-        return back()->with('status', 'Match updated.');
+        return redirect()->route('admin.matches')->with('status', 'Match updated.');
     })->name('matches.update');
+    Route::delete('matches/{match}', function (MatchRecord $match) {
+        $match->delete();
 
-    Route::get('algorithms', fn (RatingRecalculationService $recalc) => view('admin.algorithms', [
-        'algorithms' => RatingAlgorithm::latest()->get(),
-        'activeAlgorithm' => RatingAlgorithm::active(),
-        'preview' => session('recalc_preview'),
-    ]))->name('algorithms');
+        return redirect()->route('admin.matches')->with('status', 'Match deleted.');
+    })->name('matches.destroy');
 
-    Route::post('algorithms', function () {
-        $data = request()->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'version' => ['required', 'string', 'max:40', 'unique:rating_algorithms,version'],
-            'settings.starting_rating' => ['required', 'numeric'],
-            'settings.min_rating' => ['required', 'numeric'],
-            'settings.max_rating' => ['required', 'numeric'],
-            'settings.base_delta' => ['required', 'numeric'],
-            'settings.margin_weight' => ['required', 'numeric'],
-            'settings.max_margin_bonus' => ['required', 'integer'],
-            'settings.rating_scale_divisor' => ['required', 'numeric'],
-        ]);
-        RatingAlgorithm::create([
-            'created_by' => auth()->id(),
-            'name' => $data['name'],
-            'version' => $data['version'],
-            'status' => 'draft',
-            'settings' => $data['settings'],
-        ]);
+    Route::get('algorithms', fn () => view('admin.algorithms', ['algorithms' => RatingAlgorithm::latest()->paginate(20), 'activeAlgorithm' => RatingAlgorithm::active(), 'preview' => session('recalc_preview')]))->name('algorithms');
+    Route::get('algorithms/create', fn () => view('admin.algorithms-form', ['algorithm' => null]))->name('algorithms.create');
+    Route::post('algorithms', function (AlgorithmAdminService $algorithms) {
+        $data = request()->validate(['name' => ['required', 'string', 'max:120'], 'version' => ['required', 'string', 'max:40', 'unique:rating_algorithms,version'], 'settings.starting_rating' => ['required', 'numeric'], 'settings.min_rating' => ['required', 'numeric'], 'settings.max_rating' => ['required', 'numeric'], 'settings.base_delta' => ['required', 'numeric'], 'settings.margin_weight' => ['required', 'numeric'], 'settings.max_margin_bonus' => ['required', 'integer'], 'settings.rating_scale_divisor' => ['required', 'numeric']]);
+        $algorithms->create($data, auth()->id());
 
-        return back()->with('status', 'Algorithm draft created.');
+        return redirect()->route('admin.algorithms')->with('status', 'Algorithm draft created.');
     })->name('algorithms.store');
+    Route::get('algorithms/{algorithm}/edit', fn (RatingAlgorithm $algorithm) => view('admin.algorithms-form', ['algorithm' => $algorithm]))->name('algorithms.edit');
+    Route::patch('algorithms/{algorithm}', function (RatingAlgorithm $algorithm, AlgorithmAdminService $algorithms) {
+        $data = request()->validate(['name' => ['required', 'string', 'max:120'], 'version' => ['required', 'string', 'max:40', 'unique:rating_algorithms,version,'.$algorithm->id], 'settings.starting_rating' => ['required', 'numeric'], 'settings.min_rating' => ['required', 'numeric'], 'settings.max_rating' => ['required', 'numeric'], 'settings.base_delta' => ['required', 'numeric'], 'settings.margin_weight' => ['required', 'numeric'], 'settings.max_margin_bonus' => ['required', 'integer'], 'settings.rating_scale_divisor' => ['required', 'numeric']]);
+        $algorithms->update($algorithm, $data);
 
-    Route::patch('algorithms/{algorithm}', function (RatingAlgorithm $algorithm) {
-        abort_if($algorithm->status === 'active', 422, 'Active algorithms cannot be edited. Create a new draft version instead.');
-
-        $data = request()->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'version' => ['required', 'string', 'max:40', 'unique:rating_algorithms,version,'.$algorithm->id],
-            'settings.starting_rating' => ['required', 'numeric'],
-            'settings.min_rating' => ['required', 'numeric'],
-            'settings.max_rating' => ['required', 'numeric'],
-            'settings.base_delta' => ['required', 'numeric'],
-            'settings.margin_weight' => ['required', 'numeric'],
-            'settings.max_margin_bonus' => ['required', 'integer'],
-            'settings.rating_scale_divisor' => ['required', 'numeric'],
-        ]);
-
-        $algorithm->update([
-            'name' => $data['name'],
-            'version' => $data['version'],
-            'settings' => $data['settings'],
-        ]);
-
-        return back()->with('status', 'Algorithm draft updated.');
+        return redirect()->route('admin.algorithms')->with('status', 'Algorithm draft updated.');
     })->name('algorithms.update');
+    Route::post('algorithms/{algorithm}/duplicate', function (RatingAlgorithm $algorithm, AlgorithmAdminService $algorithms) {
+        $copy = $algorithms->duplicate($algorithm, auth()->id());
 
-    Route::patch('algorithms/{algorithm}/activate', function (RatingAlgorithm $algorithm) {
-        RatingAlgorithm::where('status', 'active')->update(['status' => 'archived']);
-        $algorithm->forceFill(['status' => 'active', 'activated_at' => now()])->save();
+        return redirect()->route('admin.algorithms.edit', $copy)->with('status', 'Algorithm duplicated.');
+    })->name('algorithms.duplicate');
+    Route::patch('algorithms/{algorithm}/activate', function (RatingAlgorithm $algorithm, AlgorithmAdminService $algorithms) {
+        $algorithms->activate($algorithm);
 
         return back()->with('status', 'Algorithm activated.');
     })->name('algorithms.activate');
-
-    Route::patch('algorithms/{algorithm}/archive', function (RatingAlgorithm $algorithm) {
-        if ($algorithm->status !== 'active') {
-            $algorithm->forceFill(['status' => 'archived'])->save();
-        }
+    Route::patch('algorithms/{algorithm}/archive', function (RatingAlgorithm $algorithm, AlgorithmAdminService $algorithms) {
+        $algorithms->archive($algorithm);
 
         return back()->with('status', 'Algorithm archived.');
     })->name('algorithms.archive');
+    Route::delete('algorithms/{algorithm}', function (RatingAlgorithm $algorithm, AlgorithmAdminService $algorithms) {
+        $algorithms->deleteDraft($algorithm);
 
+        return redirect()->route('admin.algorithms')->with('status', 'Algorithm deleted.');
+    })->name('algorithms.destroy');
     Route::post('algorithms/{algorithm}/recalculate/preview', fn (RatingAlgorithm $algorithm, RatingRecalculationService $recalc) => back()->with('recalc_preview', $recalc->preview($algorithm)))->name('algorithms.recalculate.preview');
     Route::post('algorithms/{algorithm}/recalculate/apply', fn (RatingAlgorithm $algorithm, RatingRecalculationService $recalc) => back()->with('recalc_preview', $recalc->apply($algorithm))->with('status', 'Ratings recalculated.'))->name('algorithms.recalculate.apply');
 });
