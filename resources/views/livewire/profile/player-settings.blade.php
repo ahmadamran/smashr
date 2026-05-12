@@ -91,8 +91,8 @@ new #[Layout('layouts.app')] class extends Component
 
 <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
     <div class="rounded-lg bg-white p-8 shadow-lg">
-        <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Badminton identity</p>
-        <h1 class="mt-2 text-3xl font-black text-[#071a80]">Player profile</h1>
+        <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Badminton identity</p>
+        <h1 class="mt-2 text-3xl font-black text-brand-blue">Player profile</h1>
 
         <form wire:submit="save" class="mt-8 grid gap-5">
             <div>
@@ -129,7 +129,7 @@ new #[Layout('layouts.app')] class extends Component
                 <x-text-input wire:model="club_name" id="club_name" class="mt-1 block w-full" />
             </div>
 
-            <button class="rounded-full bg-[#071a80] px-6 py-3 text-sm font-black uppercase text-white">Save profile</button>
+            <button class="rounded-full bg-brand-blue px-6 py-3 text-sm font-black uppercase text-white">Save profile</button>
         </form>
     </div>
 </div>

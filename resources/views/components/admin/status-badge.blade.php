@@ -6,7 +6,7 @@
         'active', 'published', 'confirmed', 'approved', 'open' => 'bg-green-50 text-green-700',
         'suspended', 'void', 'archived', 'closed' => 'bg-red-50 text-red-700',
         'disputed', 'pending_confirmation', 'pending', 'draft' => 'bg-amber-50 text-amber-800',
-        default => 'bg-blue-50 text-[#071a80]',
+        default => 'bg-brand-mist text-brand-blue',
     };
 @endphp
 

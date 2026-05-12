@@ -91,8 +91,8 @@ new #[Layout('layouts.app')] class extends Component
 
 <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
     <div class="rounded-lg bg-white p-8 shadow-lg">
-        <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Submit result</p>
-        <h1 class="mt-2 text-3xl font-black text-[#071a80]">Match details</h1>
+        <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Submit result</p>
+        <h1 class="mt-2 text-3xl font-black text-brand-blue">Match details</h1>
 
         <form wire:submit="submit" class="mt-8 grid gap-6">
             <div class="grid gap-5 md:grid-cols-3">
@@ -135,13 +135,13 @@ new #[Layout('layouts.app')] class extends Component
             </div>
 
             <div class="grid gap-6 md:grid-cols-2">
-                <section class="rounded-md border border-blue-950/10 p-5">
-                    <h2 class="font-black text-[#071a80]">Side A</h2>
+                <section class="rounded-md border border-brand-ink/10 p-5">
+                    <h2 class="font-black text-brand-blue">Side A</h2>
                     <x-text-input wire:model="side_a_1" class="mt-4 block w-full" placeholder="Player email" />
                     @if ($format === 'doubles') <x-text-input wire:model="side_a_2" class="mt-3 block w-full" placeholder="Partner email" /> @endif
                 </section>
-                <section class="rounded-md border border-blue-950/10 p-5">
-                    <h2 class="font-black text-[#071a80]">Side B</h2>
+                <section class="rounded-md border border-brand-ink/10 p-5">
+                    <h2 class="font-black text-brand-blue">Side B</h2>
                     <x-text-input wire:model="side_b_1" class="mt-4 block w-full" placeholder="Opponent email" />
                     @if ($format === 'doubles') <x-text-input wire:model="side_b_2" class="mt-3 block w-full" placeholder="Opponent partner email" /> @endif
                 </section>
@@ -150,8 +150,8 @@ new #[Layout('layouts.app')] class extends Component
 
             <div class="grid gap-4 md:grid-cols-3">
                 @foreach ([0, 1, 2] as $index)
-                    <div class="rounded-md bg-[#f3f6fb] p-4">
-                        <p class="text-xs font-black uppercase text-blue-950/50">Game {{ $index + 1 }}</p>
+                    <div class="rounded-md bg-brand-surface p-4">
+                        <p class="text-xs font-black uppercase text-brand-ink/50">Game {{ $index + 1 }}</p>
                         <div class="mt-3 grid grid-cols-2 gap-3">
                             <x-text-input wire:model="score.{{ $index }}.a" type="number" min="0" max="40" />
                             <x-text-input wire:model="score.{{ $index }}.b" type="number" min="0" max="40" />
@@ -160,7 +160,7 @@ new #[Layout('layouts.app')] class extends Component
                 @endforeach
             </div>
 
-            <button class="rounded-full bg-[#071a80] px-6 py-3 text-sm font-black uppercase text-white">Submit for confirmation</button>
+            <button class="rounded-full bg-brand-blue px-6 py-3 text-sm font-black uppercase text-white">Submit for confirmation</button>
         </form>
     </div>
 </div>

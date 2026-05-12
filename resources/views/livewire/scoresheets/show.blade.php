@@ -64,11 +64,11 @@ new #[Layout('layouts.app')] class extends Component
     <div class="rounded-lg bg-white p-5 shadow-lg sm:p-7">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <p class="text-xs font-black uppercase tracking-[.22em] text-[#d6a31d]">{{ $match->tournament?->name ?? 'Tournament match' }}</p>
-                <h1 class="mt-2 text-2xl font-black text-[#071a80] sm:text-3xl">Umpire scoresheet</h1>
-                <p class="mt-2 text-sm font-bold text-blue-950/55">{{ $match->tournamentCategory?->name ?? 'Match' }} | {{ $match->draw_group ?: 'Round '.$match->draw_round }}</p>
+                <p class="text-xs font-black uppercase tracking-[.22em] text-brand-green">{{ $match->tournament?->name ?? 'Tournament match' }}</p>
+                <h1 class="mt-2 text-2xl font-black text-brand-blue sm:text-3xl">Umpire scoresheet</h1>
+                <p class="mt-2 text-sm font-bold text-brand-ink/55">{{ $match->tournamentCategory?->name ?? 'Match' }} | {{ $match->draw_group ?: 'Round '.$match->draw_round }}</p>
             </div>
-            <span class="rounded-full bg-[#f3f6fb] px-3 py-1 text-xs font-black uppercase text-[#071a80]">{{ str_replace('_', ' ', $match->live_status) }}</span>
+            <span class="rounded-full bg-brand-surface px-3 py-1 text-xs font-black uppercase text-brand-blue">{{ str_replace('_', ' ', $match->live_status) }}</span>
         </div>
 
         @if (session('status'))
@@ -79,20 +79,20 @@ new #[Layout('layouts.app')] class extends Component
         @endif
 
         <div class="mt-6 grid gap-3">
-            <section class="rounded-lg border border-blue-950/10 p-4">
-                <p class="text-xs font-black uppercase tracking-[.18em] text-blue-950/45">Side A</p>
-                <p class="mt-2 text-lg font-black text-[#071a80]">{{ $sideA }}</p>
+            <section class="rounded-lg border border-brand-ink/10 p-4">
+                <p class="text-xs font-black uppercase tracking-[.18em] text-brand-ink/45">Side A</p>
+                <p class="mt-2 text-lg font-black text-brand-blue">{{ $sideA }}</p>
             </section>
-            <section class="rounded-lg border border-blue-950/10 p-4">
-                <p class="text-xs font-black uppercase tracking-[.18em] text-blue-950/45">Side B</p>
-                <p class="mt-2 text-lg font-black text-[#071a80]">{{ $sideB }}</p>
+            <section class="rounded-lg border border-brand-ink/10 p-4">
+                <p class="text-xs font-black uppercase tracking-[.18em] text-brand-ink/45">Side B</p>
+                <p class="mt-2 text-lg font-black text-brand-blue">{{ $sideB }}</p>
             </section>
         </div>
 
-        <div class="mt-6 rounded-lg bg-[#071a80] p-5 text-white">
+        <div class="mt-6 rounded-lg bg-brand-blue p-5 text-white">
             <div class="flex items-center justify-between gap-3">
                 <div>
-                    <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">Game {{ $liveScore['current_game'] ?? 1 }}</p>
+                    <p class="text-xs font-black uppercase tracking-[.2em] text-brand-mist">Game {{ $liveScore['current_game'] ?? 1 }}</p>
                     <p class="mt-2 text-sm font-bold text-white/60">Games: A {{ $sideAWins }} - {{ $sideBWins }} B</p>
                 </div>
                 @if ($match->live_status === 'live')
@@ -114,9 +114,9 @@ new #[Layout('layouts.app')] class extends Component
         @if ($games->isNotEmpty())
             <div class="mt-5 grid gap-2 sm:grid-cols-3">
                 @foreach ($games as $index => $game)
-                    <div class="rounded-md bg-[#f3f6fb] p-3">
-                        <p class="text-[11px] font-black uppercase text-blue-950/45">Game {{ $index + 1 }}</p>
-                        <p class="mt-1 text-2xl font-black text-[#071a80]">{{ (int) $game['a'] }} - {{ (int) $game['b'] }}</p>
+                    <div class="rounded-md bg-brand-surface p-3">
+                        <p class="text-[11px] font-black uppercase text-brand-ink/45">Game {{ $index + 1 }}</p>
+                        <p class="mt-1 text-2xl font-black text-brand-blue">{{ (int) $game['a'] }} - {{ (int) $game['b'] }}</p>
                     </div>
                 @endforeach
             </div>
@@ -124,16 +124,16 @@ new #[Layout('layouts.app')] class extends Component
 
         @if (! $locked)
             <div class="mt-6 grid grid-cols-2 gap-3">
-                <button wire:click="addPoint('A')" class="min-h-28 rounded-lg bg-[#071a80] px-4 py-6 text-xl font-black uppercase text-white">+1 Side A</button>
-                <button wire:click="addPoint('B')" class="min-h-28 rounded-lg bg-[#d6a31d] px-4 py-6 text-xl font-black uppercase text-[#071a80]">+1 Side B</button>
+                <button wire:click="addPoint('A')" class="min-h-28 rounded-lg bg-brand-blue px-4 py-6 text-xl font-black uppercase text-white">+1 Side A</button>
+                <button wire:click="addPoint('B')" class="min-h-28 rounded-lg bg-brand-green px-4 py-6 text-xl font-black uppercase text-white">+1 Side B</button>
             </div>
             <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                <button wire:click="undo" class="rounded-md border border-blue-950/10 px-4 py-3 text-sm font-black uppercase text-[#071a80]">Undo point</button>
-                <button wire:click="endGame" class="rounded-md border border-blue-950/10 px-4 py-3 text-sm font-black uppercase text-[#071a80]">End game</button>
+                <button wire:click="undo" class="rounded-md border border-brand-ink/10 px-4 py-3 text-sm font-black uppercase text-brand-blue">Undo point</button>
+                <button wire:click="endGame" class="rounded-md border border-brand-ink/10 px-4 py-3 text-sm font-black uppercase text-brand-blue">End game</button>
                 <button wire:click="submitScore" class="rounded-md bg-green-700 px-4 py-3 text-sm font-black uppercase text-white">Submit final</button>
             </div>
         @else
-            <div class="mt-6 rounded-md bg-[#f3f6fb] p-4 text-sm font-bold text-blue-950/65">
+            <div class="mt-6 rounded-md bg-brand-surface p-4 text-sm font-bold text-brand-ink/65">
                 This score sheet has been submitted. The organizer can approve it from the tournament matches page.
             </div>
         @endif

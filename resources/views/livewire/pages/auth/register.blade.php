@@ -109,8 +109,8 @@ new #[Layout('layouts.guest')] class extends Component
 }; ?>
 
 <div class="grid gap-8 lg:grid-cols-[.85fr_1.15fr]">
-    <aside class="rounded-lg bg-[#071a80] p-7 text-white">
-        <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Create account</p>
+    <aside class="rounded-lg bg-brand-blue p-7 text-white">
+        <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Create account</p>
         <h1 class="mt-4 text-4xl font-black leading-tight">Join SmashR and start building your rating.</h1>
         <div class="mt-8 space-y-4 text-sm font-bold text-white/75">
             <p class="rounded-md bg-white/10 p-4">1. Create your login.</p>
@@ -121,7 +121,7 @@ new #[Layout('layouts.guest')] class extends Component
 
     <form wire:submit="register" class="grid gap-6">
         <section>
-            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Account details</p>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Account details</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                     <x-input-label for="first_name" :value="__('First Name')" />
@@ -147,7 +147,7 @@ new #[Layout('layouts.guest')] class extends Component
         </section>
 
         <section>
-            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Player details</p>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Player details</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                     <x-input-label for="gender" :value="__('Gender')" />
@@ -169,8 +169,8 @@ new #[Layout('layouts.guest')] class extends Component
         </section>
 
         <section>
-            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Location</p>
-            <p class="mt-2 text-sm font-bold text-blue-950/50">Use your badminton home base, for example: Kuala Lumpur, Malaysia.</p>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Location</p>
+            <p class="mt-2 text-sm font-bold text-brand-ink/50">Use your badminton home base, for example: Kuala Lumpur, Malaysia.</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-4">
                 <div>
                     <x-input-label for="country" :value="__('Country')" />
@@ -193,7 +193,7 @@ new #[Layout('layouts.guest')] class extends Component
         </section>
 
         <section>
-            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Badminton profile</p>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Badminton profile</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-3">
                 <div>
                     <x-input-label for="preferred_hand" :value="__('Preferred hand')" />
@@ -217,7 +217,7 @@ new #[Layout('layouts.guest')] class extends Component
         </section>
 
         <section>
-            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">Password</p>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Password</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                     <x-input-label for="password" :value="__('Password')" />
@@ -232,12 +232,12 @@ new #[Layout('layouts.guest')] class extends Component
             </div>
         </section>
 
-        <div class="flex flex-col gap-4 border-t border-blue-950/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <a class="text-sm font-bold text-blue-950/50 underline hover:text-[#071a80]" href="{{ route('login') }}" wire:navigate>
+        <div class="flex flex-col gap-4 border-t border-brand-ink/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <a class="text-sm font-bold text-brand-ink/50 underline hover:text-brand-blue" href="{{ route('login') }}" wire:navigate>
                 {{ __('Already have an account?') }}
             </a>
 
-            <button class="rounded-full bg-[#071a80] px-7 py-4 text-sm font-black uppercase tracking-[.12em] text-white hover:bg-[#0b2bc1]">
+            <button class="rounded-full bg-brand-blue px-7 py-4 text-sm font-black uppercase tracking-[.12em] text-white hover:bg-brand-blue-dark">
                 {{ __('Create account') }}
             </button>
         </div>

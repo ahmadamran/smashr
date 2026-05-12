@@ -7,7 +7,7 @@
         'admin.matches' => 'Matches',
         'admin.algorithms' => 'Algorithms',
     ] as $route => $label)
-        <a href="{{ route($route) }}" class="rounded-full px-4 py-2 text-sm font-black uppercase {{ request()->routeIs($route) ? 'bg-[#071a80] text-white' : 'bg-white text-[#071a80]' }}">{{ $label }}</a>
+        <a href="{{ route($route) }}" class="rounded-full px-4 py-2 text-sm font-black uppercase {{ request()->routeIs($route) ? 'bg-brand-blue text-white' : 'bg-white text-brand-blue' }}">{{ $label }}</a>
     @endforeach
 </div>
 

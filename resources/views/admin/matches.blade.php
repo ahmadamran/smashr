@@ -1,9 +1,9 @@
 <x-app-layout>
-    <x-slot name="header"><h1 class="text-3xl font-black text-[#071a80]">Matches</h1></x-slot>
+    <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">Matches</h1></x-slot>
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         @include('admin.partials.nav')
         <div class="mb-6 flex justify-end">
-            <a href="{{ route('admin.matches.create') }}" class="rounded-md bg-[#071a80] px-4 py-3 text-xs font-black uppercase text-white">Create match</a>
+            <a href="{{ route('admin.matches.create') }}" class="rounded-md bg-brand-blue px-4 py-3 text-xs font-black uppercase text-white">Create match</a>
         </div>
         <form id="bulk-match-form" method="POST" action="{{ route('admin.matches.bulk') }}" class="mb-6 flex flex-col gap-3 rounded-lg bg-white p-4 shadow sm:flex-row sm:items-center sm:justify-between">
             @csrf
@@ -11,33 +11,33 @@
                 <input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">
             @endforeach
             <div>
-                <p class="text-sm font-bold text-blue-950/60">Select matches from the table, then apply a bulk action.</p>
-                <label class="mt-2 flex items-center gap-2 text-xs font-black uppercase text-[#071a80]">
-                    <input type="checkbox" name="all_filtered" value="1" class="rounded border-blue-950/20 text-[#071a80]">
+                <p class="text-sm font-bold text-brand-ink/60">Select matches from the table, then apply a bulk action.</p>
+                <label class="mt-2 flex items-center gap-2 text-xs font-black uppercase text-brand-blue">
+                    <input type="checkbox" name="all_filtered" value="1" class="rounded border-brand-ink/20 text-brand-blue">
                     Apply to all filtered results across pages
                 </label>
             </div>
             <div class="flex flex-col gap-2 sm:flex-row">
-                <select name="action" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950">
+                <select name="action" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink">
                     <option value="confirm">Confirm selected</option>
                     <option value="void">Void selected</option>
                 </select>
-                <button class="rounded-md bg-[#071a80] px-4 py-2 text-xs font-black uppercase text-white">Apply</button>
+                <button class="rounded-md bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Apply</button>
             </div>
         </form>
         <x-admin.filter-bar>
-            <select name="status" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All statuses</option>@foreach(['pending_confirmation','confirmed','disputed','void'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ str_replace('_', ' ', $status) }}</option>@endforeach</select>
-            <select name="tournament_id" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All tournaments</option>@foreach($tournaments as $tournament)<option value="{{ $tournament->id }}" @selected(request('tournament_id') == $tournament->id)>{{ $tournament->name }}</option>@endforeach</select>
-            <select name="event_id" class="rounded-md border-blue-950/10 text-sm font-bold text-blue-950"><option value="">All events</option>@foreach($events as $event)<option value="{{ $event->id }}" @selected(request('event_id') == $event->id)>{{ $event->name }}</option>@endforeach</select>
+            <select name="status" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink"><option value="">All statuses</option>@foreach(['pending_confirmation','confirmed','disputed','void'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ str_replace('_', ' ', $status) }}</option>@endforeach</select>
+            <select name="tournament_id" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink"><option value="">All tournaments</option>@foreach($tournaments as $tournament)<option value="{{ $tournament->id }}" @selected(request('tournament_id') == $tournament->id)>{{ $tournament->name }}</option>@endforeach</select>
+            <select name="event_id" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink"><option value="">All events</option>@foreach($events as $event)<option value="{{ $event->id }}" @selected(request('event_id') == $event->id)>{{ $event->name }}</option>@endforeach</select>
             <x-admin.search-input name="court" placeholder="Court" />
         </x-admin.filter-bar>
         <x-admin.table>
-            <thead class="bg-[#071a80] text-white"><tr><th class="px-4 py-3 text-xs font-black uppercase"><input type="checkbox" data-select-all="[data-match-checkbox]" class="rounded border-white/40 text-[#d6a31d]"></th>@foreach(['Match ID','Tournament','Event','Court','Players','Stage','Round','Status','Scheduled time','Winner','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>
-            <tbody class="divide-y divide-blue-950/10">
+            <thead class="bg-brand-blue text-white"><tr><th class="px-4 py-3 text-xs font-black uppercase"><input type="checkbox" data-select-all="[data-match-checkbox]" class="rounded border-white/40 text-brand-green"></th>@foreach(['Match ID','Tournament','Event','Court','Players','Stage','Round','Status','Scheduled time','Winner','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>
+            <tbody class="divide-y divide-brand-ink/10">
                 @forelse ($matches as $match)
                     <tr class="align-top">
-                        <td class="px-4 py-4"><input form="bulk-match-form" data-match-checkbox type="checkbox" name="match_ids[]" value="{{ $match->id }}" class="rounded border-blue-950/20 text-[#071a80]"></td>
-                        <td class="px-4 py-4 font-black text-[#071a80]">#{{ $match->id }}</td>
+                        <td class="px-4 py-4"><input form="bulk-match-form" data-match-checkbox type="checkbox" name="match_ids[]" value="{{ $match->id }}" class="rounded border-brand-ink/20 text-brand-blue"></td>
+                        <td class="px-4 py-4 font-black text-brand-blue">#{{ $match->id }}</td>
                         <td class="px-4 py-4">{{ $match->tournament?->name ?: '-' }}</td>
                         <td class="px-4 py-4">{{ $match->tournamentCategory?->name ?: '-' }}</td>
                         <td class="px-4 py-4">{{ $match->court_label ?: '-' }}</td>
@@ -49,17 +49,17 @@
                         <td class="px-4 py-4">Side {{ $match->winner_side }}</td>
                         <td class="px-4 py-4">
                             <x-admin.action-dropdown>
-                                <a href="{{ route('admin.matches.show', $match) }}" class="rounded px-3 py-2 hover:bg-[#f3f6fb]">View</a>
-                                <a href="{{ route('admin.matches.edit', $match) }}" class="rounded px-3 py-2 hover:bg-[#f3f6fb]">Edit / result / schedule</a>
-                                <form method="POST" action="{{ route('admin.matches.confirm', $match) }}">@csrf @method('PATCH')<button class="w-full rounded px-3 py-2 text-left hover:bg-[#f3f6fb]">Confirm</button></form>
-                                <form method="POST" action="{{ route('admin.matches.dispute', $match) }}">@csrf @method('PATCH')<button class="w-full rounded px-3 py-2 text-left hover:bg-[#f3f6fb]">Dispute</button></form>
-                                <form method="POST" action="{{ route('admin.matches.void', $match) }}">@csrf @method('PATCH')<button class="w-full rounded px-3 py-2 text-left hover:bg-[#f3f6fb]">Void</button></form>
+                                <a href="{{ route('admin.matches.show', $match) }}" class="rounded px-3 py-2 hover:bg-brand-surface">View</a>
+                                <a href="{{ route('admin.matches.edit', $match) }}" class="rounded px-3 py-2 hover:bg-brand-surface">Edit / result / schedule</a>
+                                <form method="POST" action="{{ route('admin.matches.confirm', $match) }}">@csrf @method('PATCH')<button class="w-full rounded px-3 py-2 text-left hover:bg-brand-surface">Confirm</button></form>
+                                <form method="POST" action="{{ route('admin.matches.dispute', $match) }}">@csrf @method('PATCH')<button class="w-full rounded px-3 py-2 text-left hover:bg-brand-surface">Dispute</button></form>
+                                <form method="POST" action="{{ route('admin.matches.void', $match) }}">@csrf @method('PATCH')<button class="w-full rounded px-3 py-2 text-left hover:bg-brand-surface">Void</button></form>
                                 <x-admin.confirm-dialog :action="route('admin.matches.destroy', $match)" label="Delete" message="Delete this match?" />
                             </x-admin.action-dropdown>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="12" class="px-4 py-10 text-center font-bold text-blue-950/50">No matches found.</td></tr>
+                    <tr><td colspan="12" class="px-4 py-10 text-center font-bold text-brand-ink/50">No matches found.</td></tr>
                 @endforelse
             </tbody>
         </x-admin.table>

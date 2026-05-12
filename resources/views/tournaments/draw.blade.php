@@ -117,8 +117,8 @@
 <x-app-layout>
     <x-slot name="header">
         <div>
-            <p class="text-xs font-black uppercase tracking-[.25em] text-[#d6a31d]">{{ $tournament->name }}</p>
-            <h1 class="text-3xl font-black text-[#071a80]">{{ $category->name }} draw</h1>
+            <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">{{ $tournament->name }}</p>
+            <h1 class="text-3xl font-black text-brand-blue">{{ $category->name }} draw</h1>
         </div>
     </x-slot>
 
@@ -128,7 +128,7 @@
         <div class="mb-6 overflow-x-auto">
             <div class="flex min-w-max gap-2">
                 @foreach ($tournament->categories->sortBy('name') as $tabCategory)
-                    <a href="{{ route('tournaments.draw', [$tournament, $tabCategory]) }}" class="rounded-md px-4 py-2 text-xs font-black uppercase {{ $tabCategory->is($category) ? 'bg-[#071a80] text-white' : 'bg-white text-[#071a80]' }}">
+                    <a href="{{ route('tournaments.draw', [$tournament, $tabCategory]) }}" class="rounded-md px-4 py-2 text-xs font-black uppercase {{ $tabCategory->is($category) ? 'bg-brand-blue text-white' : 'bg-white text-brand-blue' }}">
                         {{ $tabCategory->name }}
                     </a>
                 @endforeach
@@ -138,24 +138,24 @@
         @if ($category->draw_mode === 'round_robin')
             @include('tournaments.partials.group-tabs', ['tournament' => $tournament, 'category' => $category])
             <section class="mb-6 rounded-lg bg-white p-6 shadow-lg">
-                <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">Group draw</p>
-                <h2 class="mt-1 text-2xl font-black text-[#071a80]">Round robin groups of {{ $category->group_size }}</h2>
+                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Group draw</p>
+                <h2 class="mt-1 text-2xl font-black text-brand-blue">Round robin groups of {{ $category->group_size }}</h2>
             </section>
             <div class="grid gap-5 lg:grid-cols-2">
                 @foreach ($category->entrants->where('status', 'approved')->groupBy('group_name')->sortKeys() as $group => $entrants)
                     <section class="rounded-lg bg-white p-6 shadow-lg">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-xl font-black text-[#071a80]">{{ $group ?: 'Ungrouped' }}</h2>
+                            <h2 class="text-xl font-black text-brand-blue">{{ $group ?: 'Ungrouped' }}</h2>
                             @if ($group)
                                 <div class="flex gap-2">
-                                    <a href="{{ route('tournaments.draw.group', [$tournament, $category, str($group)->slug()]) }}" class="rounded-full bg-[#071a80] px-4 py-2 text-xs font-black uppercase text-white">Standings</a>
-                                    <a href="{{ route('tournaments.draw.group.matches', [$tournament, $category, str($group)->slug()]) }}" class="rounded-full border border-blue-950/10 px-4 py-2 text-xs font-black uppercase text-[#071a80]">Matches</a>
+                                    <a href="{{ route('tournaments.draw.group', [$tournament, $category, str($group)->slug()]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Standings</a>
+                                    <a href="{{ route('tournaments.draw.group.matches', [$tournament, $category, str($group)->slug()]) }}" class="rounded-full border border-brand-ink/10 px-4 py-2 text-xs font-black uppercase text-brand-blue">Matches</a>
                                 </div>
                             @endif
                         </div>
-                        <div class="mt-4 divide-y divide-blue-950/10">
+                        <div class="mt-4 divide-y divide-brand-ink/10">
                             @foreach ($entrants as $entrant)
-                                <p class="py-2 font-bold text-blue-950/70">{{ $entrant->draw_position }}. {{ $entrant->displayName() }}</p>
+                                <p class="py-2 font-bold text-brand-ink/70">{{ $entrant->draw_position }}. {{ $entrant->displayName() }}</p>
                             @endforeach
                         </div>
                     </section>
@@ -163,25 +163,25 @@
             </div>
         @elseif ($category->matches->isEmpty() && $approvedEntrants->isEmpty())
             <section class="rounded-lg bg-white p-6 shadow-lg">
-                <h2 class="text-xl font-black text-[#071a80]">Draw not generated yet</h2>
-                <p class="mt-2 text-blue-950/60">Approved entrants will appear here after the organizer generates the draw.</p>
+                <h2 class="text-xl font-black text-brand-blue">Draw not generated yet</h2>
+                <p class="mt-2 text-brand-ink/60">Approved entrants will appear here after the organizer generates the draw.</p>
             </section>
         @else
             <section class="rounded-lg bg-white p-5 shadow-lg">
-                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-blue-950/10 pb-4">
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-brand-ink/10 pb-4">
                     <div>
-                        <p class="text-xs font-black uppercase tracking-[.2em] text-[#d6a31d]">Main draw</p>
-                        <h2 class="text-2xl font-black text-[#071a80]">{{ $drawSize }} draw | {{ $roundCount }} rounds</h2>
+                        <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Main draw</p>
+                        <h2 class="text-2xl font-black text-brand-blue">{{ $drawSize }} draw | {{ $roundCount }} rounds</h2>
                     </div>
-                    <a href="{{ route('tournaments.matches', $tournament, ['date' => request('date')]) }}" class="rounded-full bg-[#071a80] px-4 py-2 text-xs font-black uppercase text-white">Match schedule</a>
+                    <a href="{{ route('tournaments.matches', $tournament, ['date' => request('date')]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Match schedule</a>
                 </div>
 
                 <div class="mt-5 overflow-x-auto pb-3">
                     <div class="grid min-w-max auto-cols-[280px] grid-flow-col gap-5">
                         @foreach ($bracketRounds as $roundIndex => $round)
                             <div>
-                                <div class="sticky left-0 rounded-md bg-[#071a80] px-4 py-3 text-white">
-                                    <p class="text-[11px] font-black uppercase tracking-[.18em] text-[#d6a31d]">Round {{ $round['number'] }}</p>
+                                <div class="sticky left-0 rounded-md bg-brand-blue px-4 py-3 text-white">
+                                    <p class="text-[11px] font-black uppercase tracking-[.18em] text-brand-green">Round {{ $round['number'] }}</p>
                                     <h3 class="mt-1 text-lg font-black">{{ $round['title'] }}</h3>
                                 </div>
 
@@ -195,32 +195,32 @@
                                         @endphp
                                         <div class="relative flex items-center" style="grid-row: {{ $rowStart }} / span {{ $rowSpan }};">
                                             @if ($hasPreviousRound)
-                                                <span class="pointer-events-none absolute right-[calc(100%+0.625rem)] top-1/4 bottom-1/4 w-px bg-blue-950/25"></span>
-                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-2.5 bg-blue-950/25"></span>
+                                                <span class="pointer-events-none absolute right-[calc(100%+0.625rem)] top-1/4 bottom-1/4 w-px bg-brand-ink/25"></span>
+                                                <span class="pointer-events-none absolute right-full top-1/2 h-px w-2.5 bg-brand-ink/25"></span>
                                             @endif
                                             @if ($hasNextRound)
-                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-2.5 bg-blue-950/25"></span>
+                                                <span class="pointer-events-none absolute left-full top-1/2 h-px w-2.5 bg-brand-ink/25"></span>
                                             @endif
-                                            <article class="w-full rounded-md border border-blue-950/10 bg-[#f8fafc] p-3">
+                                            <article class="w-full rounded-md border border-brand-ink/10 bg-brand-surface p-3">
                                                 <div class="flex items-center justify-between gap-3">
-                                                    <p class="text-[11px] font-black uppercase tracking-[.16em] text-blue-950/45">Match {{ $drawMatch['position'] }}</p>
+                                                    <p class="text-[11px] font-black uppercase tracking-[.16em] text-brand-ink/45">Match {{ $drawMatch['position'] }}</p>
                                                     @if ($drawMatch['match']?->scheduled_at || $drawMatch['match']?->court_label)
-                                                        <p class="text-[11px] font-black uppercase text-[#d6a31d]">
+                                                        <p class="text-[11px] font-black uppercase text-brand-green">
                                                             {{ $drawMatch['match']?->scheduled_at?->format('g:i A') }}
                                                             {{ $drawMatch['match']?->court_label ? ' | '.$drawMatch['match']->court_label : '' }}
                                                         </p>
                                                     @endif
                                                 </div>
 
-                                                <div class="mt-3 divide-y divide-blue-950/10 overflow-hidden rounded-md border border-blue-950/10 bg-white">
-                                                    <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-blue-50' : '' }}">
-                                                        <p class="text-sm font-black text-[#071a80]">{{ $drawMatch['side_a'] }}</p>
+                                                <div class="mt-3 divide-y divide-brand-ink/10 overflow-hidden rounded-md border border-brand-ink/10 bg-white">
+                                                    <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-brand-mist' : '' }}">
+                                                        <p class="text-sm font-black text-brand-blue">{{ $drawMatch['side_a'] }}</p>
                                                         @if ($drawMatch['winner_side'] === 'A')
                                                             <span class="text-xs font-black uppercase text-green-700">Won</span>
                                                         @endif
                                                     </div>
-                                                    <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-blue-50' : '' }}">
-                                                        <p class="text-sm font-black text-[#071a80]">{{ $drawMatch['side_b'] }}</p>
+                                                    <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-brand-mist' : '' }}">
+                                                        <p class="text-sm font-black text-brand-blue">{{ $drawMatch['side_b'] }}</p>
                                                         @if ($drawMatch['winner_side'] === 'B')
                                                             <span class="text-xs font-black uppercase text-green-700">Won</span>
                                                         @endif
@@ -228,9 +228,9 @@
                                                 </div>
 
                                                 @if ($drawMatch['score'])
-                                                    <p class="mt-2 text-xs font-bold text-blue-950/60">{{ $drawMatch['score'] }}</p>
+                                                    <p class="mt-2 text-xs font-bold text-brand-ink/60">{{ $drawMatch['score'] }}</p>
                                                 @elseif ($drawMatch['note'])
-                                                    <p class="mt-2 text-xs font-bold text-blue-950/45">{{ $drawMatch['note'] }}</p>
+                                                    <p class="mt-2 text-xs font-bold text-brand-ink/45">{{ $drawMatch['note'] }}</p>
                                                 @endif
                                             </article>
                                         </div>
