@@ -192,6 +192,34 @@ class SmashrPlatformTest extends TestCase
             ->assertSee('Player dashboard');
     }
 
+    public function test_public_club_index_can_search_by_name_and_location(): void
+    {
+        Club::create([
+            'name' => 'Kuching Smash Club',
+            'slug' => 'kuching-smash-club',
+            'country' => 'Malaysia',
+            'state' => 'Sarawak',
+            'city' => 'Kuching',
+        ]);
+        Club::create([
+            'name' => 'Hidden City Club',
+            'slug' => 'hidden-city-club',
+            'country' => 'Malaysia',
+            'state' => 'Selangor',
+            'city' => 'Shah Alam',
+        ]);
+
+        $this->get('/clubs?search=Kuching')
+            ->assertOk()
+            ->assertSee('Kuching Smash Club')
+            ->assertDontSee('Hidden City Club');
+
+        $this->get('/clubs?search=Sarawak')
+            ->assertOk()
+            ->assertSee('Kuching Smash Club')
+            ->assertDontSee('Hidden City Club');
+    }
+
     public function test_public_match_index_renders_confirmed_matches(): void
     {
         [$winner, $loser] = [$this->player('Index Winner'), $this->player('Index Loser')];

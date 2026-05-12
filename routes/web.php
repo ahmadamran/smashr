@@ -111,9 +111,16 @@ Route::get('players/{playerProfile:slug}', fn (PlayerProfile $playerProfile) => 
 
 Route::get('clubs', fn () => view('clubs.index', [
     'clubs' => Club::withCount('members')
+        ->when(request('search'), fn ($query, $search) => $query->where(fn ($q) => $q
+            ->where('name', 'like', "%{$search}%")
+            ->orWhere('country', 'like', "%{$search}%")
+            ->orWhere('state', 'like', "%{$search}%")
+            ->orWhere('city', 'like', "%{$search}%")
+            ->orWhere('description', 'like', "%{$search}%")))
         ->orderByDesc('members_count')
         ->orderBy('name')
-        ->paginate(12),
+        ->paginate(12)
+        ->withQueryString(),
 ]))->name('clubs.index');
 
 Route::get('clubs/{club:slug}', fn (Club $club) => view('clubs.show', [

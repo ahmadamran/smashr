@@ -10,6 +10,35 @@
     </x-slot>
 
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mb-6 rounded-lg bg-white p-4 shadow-lg">
+            <form method="GET" action="{{ route('clubs.index') }}" class="flex flex-col gap-3 md:flex-row md:items-center">
+                <label class="min-w-0 flex-1">
+                    <span class="sr-only">Search clubs</span>
+                    <input
+                        type="search"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Search by club, city, state, or country"
+                        class="w-full rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-green focus:ring-brand-green"
+                    >
+                </label>
+                <button type="submit" class="rounded-md bg-brand-blue px-5 py-3 text-xs font-black uppercase text-white transition hover:bg-brand-ink">
+                    Search
+                </button>
+                @if (request('search'))
+                    <a href="{{ route('clubs.index') }}" class="rounded-md border border-brand-ink/10 px-5 py-3 text-center text-xs font-black uppercase text-brand-blue transition hover:border-brand-blue">
+                        Reset
+                    </a>
+                @endif
+            </form>
+
+            @if (request('search'))
+                <p class="mt-3 text-sm font-bold text-brand-ink/60">
+                    Showing {{ $clubs->total() }} {{ Str::plural('club', $clubs->total()) }} for <span class="text-brand-blue">{{ request('search') }}</span>
+                </p>
+            @endif
+        </div>
+
         <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             @forelse ($clubs as $club)
                 <a href="{{ route('clubs.show', $club) }}" class="rounded-lg bg-white p-6 shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">
@@ -23,8 +52,8 @@
                 </a>
             @empty
                 <div class="rounded-lg bg-white p-8 shadow-lg md:col-span-2 lg:col-span-3">
-                    <h2 class="text-2xl font-black text-brand-blue">No clubs yet</h2>
-                    <p class="mt-2 text-brand-ink/60">Create a profile and add your club to start the directory.</p>
+                    <h2 class="text-2xl font-black text-brand-blue">{{ request('search') ? 'No clubs found' : 'No clubs yet' }}</h2>
+                    <p class="mt-2 text-brand-ink/60">{{ request('search') ? 'Try another club name or location.' : 'Create a profile and add your club to start the directory.' }}</p>
                 </div>
             @endforelse
         </div>
