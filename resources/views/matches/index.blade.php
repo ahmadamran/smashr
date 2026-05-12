@@ -10,7 +10,8 @@
     </x-slot>
 
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-5">
+        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-6">
+            <input name="search" value="{{ request('search') }}" placeholder="Search player, club, or tournament" class="rounded-md border-brand-ink/10 md:col-span-2">
             <select name="format" class="rounded-md border-brand-ink/10">
                 <option value="">All formats</option>
                 <option value="singles" @selected(request('format') === 'singles')>Singles</option>
@@ -34,7 +35,12 @@
                     <option value="{{ $tournament->slug }}" @selected(request('tournament') === $tournament->slug)>{{ $tournament->name }}</option>
                 @endforeach
             </select>
-            <button class="rounded-md bg-brand-blue px-4 py-2 text-sm font-black uppercase text-white">Filter</button>
+            <div class="flex gap-2">
+                <button class="flex-1 rounded-md bg-brand-blue px-4 py-2 text-sm font-black uppercase text-white">Filter</button>
+                @if (request()->hasAny(['search', 'format', 'status', 'club', 'tournament']))
+                    <a href="{{ route('matches.index') }}" class="rounded-md border border-brand-ink/10 px-4 py-2 text-sm font-black uppercase text-brand-blue">Clear</a>
+                @endif
+            </div>
         </form>
 
         <div class="grid gap-5 lg:grid-cols-2">

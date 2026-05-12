@@ -78,6 +78,22 @@ Route::get('rankings', function () {
 Route::get('matches', fn () => view('matches.index', [
     'matches' => MatchRecord::with('players.user.playerProfile', 'club', 'tournament')
         ->whereJsonLength('score', '>', 0)
+        ->when(request('search'), function ($query, $search) {
+            $search = trim((string) $search);
+
+            if ($search === '') {
+                return;
+            }
+
+            $query->where(function ($query) use ($search) {
+                $query
+                    ->whereHas('players.user', fn ($users) => $users
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhereHas('playerProfile', fn ($profiles) => $profiles->where('display_name', 'like', "%{$search}%")))
+                    ->orWhereHas('club', fn ($clubs) => $clubs->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('tournament', fn ($tournaments) => $tournaments->where('name', 'like', "%{$search}%"));
+            });
+        })
         ->when(request('format'), fn ($query, $format) => $query->where('format', $format))
         ->when(request('status'), fn ($query, $status) => $query->where('status', $status))
         ->when(request('club'), fn ($query, $club) => $query->whereHas('club', fn ($clubs) => $clubs->where('slug', $club)))

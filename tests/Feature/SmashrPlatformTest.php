@@ -10,6 +10,7 @@ use Modules\Matches\Models\MatchRecord;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Ratings\Models\RatingEvent;
 use Modules\Ratings\Services\RatingService;
+use Modules\Tournaments\Models\Tournament;
 use Tests\TestCase;
 
 class SmashrPlatformTest extends TestCase
@@ -217,6 +218,62 @@ class SmashrPlatformTest extends TestCase
             ->assertSee('21 - 14')
             ->assertSee('Game 2')
             ->assertSee('21 - 17');
+    }
+
+    public function test_public_match_index_searches_player_club_and_tournament_names(): void
+    {
+        [$winner, $loser, $hidden] = [
+            $this->player('Search Winner'),
+            $this->player('Search Loser'),
+            $this->player('Hidden Match Player'),
+        ];
+        $club = Club::create(['name' => 'Search Club', 'slug' => 'search-club']);
+        $tournament = Tournament::create([
+            'name' => 'Search Tournament',
+            'slug' => 'search-tournament',
+            'status' => 'published',
+        ]);
+
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $winner->id,
+            'club_id' => $club->id,
+            'tournament_id' => $tournament->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 14]],
+            'winner_side' => 'A',
+        ]);
+        $match->players()->create(['user_id' => $winner->id, 'side' => 'A', 'position' => 1]);
+        $match->players()->create(['user_id' => $loser->id, 'side' => 'B', 'position' => 1]);
+
+        $hiddenMatch = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $hidden->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 10]],
+            'winner_side' => 'A',
+        ]);
+        $hiddenMatch->players()->create(['user_id' => $hidden->id, 'side' => 'A', 'position' => 1]);
+        $hiddenMatch->players()->create(['user_id' => $this->player('Other Hidden Player')->id, 'side' => 'B', 'position' => 1]);
+
+        $this->get('/matches?search=Search+Winner')
+            ->assertOk()
+            ->assertSee('Search Winner')
+            ->assertDontSee('Hidden Match Player');
+
+        $this->get('/matches?search=Search+Club')
+            ->assertOk()
+            ->assertSee('Search Winner')
+            ->assertSee('Search Club')
+            ->assertDontSee('Hidden Match Player');
+
+        $this->get('/matches?search=Search+Tournament')
+            ->assertOk()
+            ->assertSee('Search Winner')
+            ->assertSee('Search Tournament')
+            ->assertDontSee('Hidden Match Player');
     }
 
     public function test_public_match_index_hides_unsubmitted_match_placeholders(): void
