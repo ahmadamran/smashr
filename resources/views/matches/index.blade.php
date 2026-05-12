@@ -10,37 +10,35 @@
     </x-slot>
 
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-6">
-            <input name="search" value="{{ request('search') }}" placeholder="Search player, club, or tournament" class="rounded-md border-brand-ink/10 md:col-span-2">
-            <select name="format" class="rounded-md border-brand-ink/10">
+        <form class="mb-6 grid gap-2 rounded-lg bg-white p-4 shadow-lg lg:grid-cols-[minmax(14rem,1.6fr)_minmax(8rem,.75fr)_minmax(10rem,.85fr)_minmax(9rem,.8fr)_minmax(12rem,1fr)_auto_auto]">
+            <input name="search" value="{{ request('search') }}" placeholder="Search player, club, or tournament" class="rounded-md border-brand-ink/10 text-sm">
+            <select name="format" class="rounded-md border-brand-ink/10 text-sm">
                 <option value="">All formats</option>
                 <option value="singles" @selected(request('format') === 'singles')>Singles</option>
                 <option value="doubles" @selected(request('format') === 'doubles')>Doubles</option>
             </select>
-            <select name="status" class="rounded-md border-brand-ink/10">
+            <select name="status" class="rounded-md border-brand-ink/10 text-sm">
                 <option value="">All statuses</option>
                 @foreach (['pending_confirmation', 'confirmed', 'disputed', 'void'] as $status)
                     <option value="{{ $status }}" @selected(request('status') === $status)>{{ str_replace('_', ' ', ucfirst($status)) }}</option>
                 @endforeach
             </select>
-            <select name="club" class="rounded-md border-brand-ink/10">
+            <select name="club" class="rounded-md border-brand-ink/10 text-sm">
                 <option value="">All clubs</option>
                 @foreach ($clubs as $club)
                     <option value="{{ $club->slug }}" @selected(request('club') === $club->slug)>{{ $club->name }}</option>
                 @endforeach
             </select>
-            <select name="tournament" class="rounded-md border-brand-ink/10">
+            <select name="tournament" class="rounded-md border-brand-ink/10 text-sm">
                 <option value="">All tournaments</option>
                 @foreach ($tournaments as $tournament)
                     <option value="{{ $tournament->slug }}" @selected(request('tournament') === $tournament->slug)>{{ $tournament->name }}</option>
                 @endforeach
             </select>
-            <div class="flex gap-2">
-                <button class="flex-1 rounded-md bg-brand-blue px-4 py-2 text-sm font-black uppercase text-white">Filter</button>
-                @if (request()->hasAny(['search', 'format', 'status', 'club', 'tournament']))
-                    <a href="{{ route('matches.index') }}" class="rounded-md border border-brand-ink/10 px-4 py-2 text-sm font-black uppercase text-brand-blue">Clear</a>
-                @endif
-            </div>
+            <button class="rounded-md bg-brand-blue px-4 py-2 text-sm font-black uppercase text-white">Filter</button>
+            @if (request()->hasAny(['search', 'format', 'status', 'club', 'tournament']))
+                <a href="{{ route('matches.index') }}" class="rounded-md border border-brand-ink/10 px-4 py-2 text-center text-sm font-black uppercase text-brand-blue">Clear</a>
+            @endif
         </form>
 
         <div class="grid gap-5 lg:grid-cols-2">
