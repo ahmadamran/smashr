@@ -66,6 +66,8 @@ class UserAdminService
 
     private function syncClub(User $user, mixed $clubId): void
     {
-        $user->clubs()->sync($clubId ? [$clubId] : []);
+        if ($clubId) {
+            $user->clubs()->syncWithoutDetaching([$clubId]);
+        }
     }
 }

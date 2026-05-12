@@ -19,13 +19,16 @@
                     :value="$user?->playerProfile?->phone_number"
                     :country="$user?->playerProfile?->country ?: 'Malaysia'"
                 />
-                <label class="font-bold text-brand-blue">Club
+                <label class="font-bold text-brand-blue">Add club or school
                     <select name="club_id" class="mt-1 w-full rounded-md border-brand-ink/10">
-                        <option value="">Independent</option>
+                        <option value="">Keep current memberships</option>
                         @foreach ($clubs as $club)
-                            <option value="{{ $club->id }}" @selected(old('club_id', $user?->clubs->first()?->id) === $club->id)>{{ $club->name }}</option>
+                            <option value="{{ $club->id }}" @selected(old('club_id') == $club->id)>{{ $club->name }}</option>
                         @endforeach
                     </select>
+                    @if ($user && $user->clubs->isNotEmpty())
+                        <span class="mt-2 block text-sm text-brand-ink/50">Current: {{ $user->clubs->pluck('name')->join(', ') }}</span>
+                    @endif
                 </label>
                 @unless ($user)
                     <label class="font-bold text-brand-blue">Initial SMASHR points

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tournament_entrant_id', 'user_id', 'display_name', 'position'])]
+#[Fillable(['tournament_entrant_id', 'user_id', 'display_name', 'school_name', 'position'])]
 class TournamentEntrantPlayer extends Model
 {
     public function entrant(): BelongsTo

@@ -26,7 +26,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->city = $profile?->city ?? '';
         $this->preferred_hand = $profile?->preferred_hand ?? 'right';
         $this->primary_format = $profile?->primary_format ?? 'doubles';
-        $this->club_name = auth()->user()->clubs()->first()?->name ?? '';
+        $this->club_name = '';
     }
 
     public function save(): void
@@ -54,8 +54,6 @@ new #[Layout('layouts.app')] class extends Component
                 'slug' => $this->uniqueSlug($baseSlug ?: 'player'),
             ],
         );
-
-        auth()->user()->clubs()->detach();
 
         if ($validated['club_name'] !== '') {
             $club = Club::firstOrCreate(
@@ -93,6 +91,9 @@ new #[Layout('layouts.app')] class extends Component
     <div class="rounded-lg bg-white p-8 shadow-lg">
         <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Badminton identity</p>
         <h1 class="mt-2 text-3xl font-black text-brand-blue">Player profile</h1>
+        @if (auth()->user()->clubs->isNotEmpty())
+            <p class="mt-3 text-sm font-bold text-brand-ink/55">Current clubs: {{ auth()->user()->clubs->pluck('name')->join(', ') }}</p>
+        @endif
 
         <form wire:submit="save" class="mt-8 grid gap-5">
             <div>
@@ -125,7 +126,7 @@ new #[Layout('layouts.app')] class extends Component
             </div>
 
             <div>
-                <x-input-label for="club_name" value="Club name optional" />
+                <x-input-label for="club_name" value="Add club or school optional" />
                 <x-text-input wire:model="club_name" id="club_name" class="mt-1 block w-full" />
             </div>
 

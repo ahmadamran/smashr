@@ -107,12 +107,16 @@ Route::get('tournaments/{tournament:slug}', fn (Tournament $tournament) => view(
     ])->loadCount('matches', 'entrants'),
 ]))->name('tournaments.show');
 
+Route::get('tournaments/{tournament:slug}/players', fn (Tournament $tournament) => view('tournaments.players', [
+    'tournament' => $tournament->load('club', 'organizer', 'categories'),
+]))->name('tournaments.players');
+
 Route::get('tournaments/{tournament:slug}/draws/{category:slug}', function (Tournament $tournament, TournamentCategory $category) {
     abort_unless($category->tournament_id === $tournament->id, 404);
 
     return view('tournaments.draw', [
         'tournament' => $tournament->load('club', 'organizer', 'categories'),
-        'category' => $category->load('entrants.players.user.playerProfile', 'matches.players.user.playerProfile'),
+        'category' => $category,
     ]);
 })->scopeBindings()->name('tournaments.draw');
 
@@ -153,21 +157,8 @@ Route::get('tournaments/{tournament:slug}/draws/{category:slug}/{group}/matches'
 })->scopeBindings()->name('tournaments.draw.group.matches');
 
 Route::get('tournaments/{tournament:slug}/matches', function (Tournament $tournament) {
-    $matches = $tournament->matches()
-        ->with('players.user.playerProfile', 'tournamentCategory')
-        ->when(request('date'), fn ($query, $date) => $query->whereDate('played_at', $date))
-        ->orderByRaw("case when live_status = 'live' then 0 else 1 end")
-        ->orderBy('scheduled_at')
-        ->orderBy('played_at')
-        ->orderBy('tournament_category_id')
-        ->get();
-
     return view('tournaments.matches', [
         'tournament' => $tournament->load('club', 'organizer', 'categories'),
-        'liveMatches' => $matches->where('live_status', 'live')->values(),
-        'matches' => $matches
-            ->reject(fn (MatchRecord $match) => $match->live_status === 'live')
-            ->groupBy(fn (MatchRecord $match) => $match->played_at->toDateString()),
     ]);
 })->name('tournaments.matches');
 

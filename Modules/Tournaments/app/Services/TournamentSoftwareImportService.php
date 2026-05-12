@@ -8,18 +8,24 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use RuntimeException;
+use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
 use Modules\Players\Models\PlayerProfile;
+use Modules\Ratings\Models\RatingAlgorithm;
+use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
+use RuntimeException;
 
 class TournamentSoftwareImportService
 {
     public const TOURNAMENT_ID = 'E4153E6E-E8D5-42AF-9EDC-4B362F00CB2F';
+
     public const SOURCE_URL = 'https://www.tournamentsoftware.com/tournament/'.self::TOURNAMENT_ID;
+
     public const PLAYERS_URL = self::SOURCE_URL.'/players';
+
     public const SNAPSHOT_PATH = 'seeders/data/mss_melaka_badminton_2026_entries.json';
 
     public const EVENTS = [
@@ -49,6 +55,8 @@ class TournamentSoftwareImportService
 
         foreach ($players as $player) {
             $user = $this->upsertPlayer($player);
+            $this->syncSchoolClub($user, $player);
+
             if (filled($player['source_player_id'] ?? null)) {
                 $usersBySourcePlayerId->put((string) $player['source_player_id'], $user);
             }
@@ -70,10 +78,15 @@ class TournamentSoftwareImportService
 
                 $entrant->players()->updateOrCreate(
                     ['position' => 1],
-                    ['user_id' => $user->id],
+                    [
+                        'user_id' => $user->id,
+                        'school_name' => filled($player['school'] ?? null) ? $player['school'] : null,
+                    ],
                 );
             }
         }
+
+        $this->resetImportedSinglesRatings($usersBySourcePlayerId);
 
         foreach ($categories as $eventCode => $category) {
             if (! empty($sourceMatches[$eventCode])) {
@@ -162,11 +175,13 @@ class TournamentSoftwareImportService
 
     private function upsertTournament(): Tournament
     {
+        $organizer = $this->upsertImportOrganizer();
+
         return Tournament::updateOrCreate(
             ['slug' => 'mss-melaka-badminton-2026'],
             [
                 'club_id' => null,
-                'organizer_id' => User::where('email', 'admin@smashr.test')->value('id') ?? User::query()->value('id'),
+                'organizer_id' => $organizer->id,
                 'name' => 'MSS MELAKA BADMINTON 2026',
                 'country' => 'Malaysia',
                 'state' => 'Melaka',
@@ -180,6 +195,33 @@ class TournamentSoftwareImportService
                 'registration_deadline' => '2026-05-11',
             ],
         );
+    }
+
+    private function upsertImportOrganizer(): User
+    {
+        $user = User::firstOrCreate(
+            ['email' => 'admin@smashr.test'],
+            [
+                'name' => 'Smashr Superadmin',
+                'email_verified_at' => now(),
+                'password' => Hash::make('password'),
+            ],
+        );
+
+        PlayerProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'display_name' => $user->name,
+                'slug' => 'smashr-superadmin',
+                'country' => 'Malaysia',
+                'state' => 'Kuala Lumpur',
+                'city' => 'Kuala Lumpur',
+                'preferred_hand' => 'right',
+                'primary_format' => 'doubles',
+            ],
+        );
+
+        return $user;
     }
 
     private function upsertCategories(Tournament $tournament): array
@@ -239,6 +281,42 @@ class TournamentSoftwareImportService
         return $user;
     }
 
+    private function syncSchoolClub(User $user, array $player): void
+    {
+        $school = trim((string) ($player['school'] ?? ''));
+
+        if ($school === '') {
+            return;
+        }
+
+        $club = Club::whereRaw('lower(name) = ?', [Str::lower($school)])->first();
+
+        if (! $club) {
+            $club = Club::create([
+                'name' => $school,
+                'slug' => $this->uniqueClubSlug(Str::slug($school) ?: 'school'),
+                'country' => 'Malaysia',
+                'state' => 'Melaka',
+                'city' => 'Melaka',
+                'description' => 'School imported from MSS MELAKA BADMINTON 2026 via TournamentSoftware.',
+            ]);
+        }
+
+        $user->clubs()->syncWithoutDetaching([$club->id]);
+    }
+
+    private function uniqueClubSlug(string $baseSlug): string
+    {
+        $slug = $baseSlug;
+        $count = 2;
+
+        while (Club::where('slug', $slug)->exists()) {
+            $slug = $baseSlug.'-'.$count++;
+        }
+
+        return $slug;
+    }
+
     private function syncSourceMatches(Tournament $tournament, TournamentCategory $category, array $sourceMatches, Collection $usersBySourcePlayerId): void
     {
         $scores = app(MatchScoreService::class);
@@ -255,6 +333,7 @@ class TournamentSoftwareImportService
             }
 
             $score = $sourceMatch['score'] ?? [];
+            $shouldApplyRating = $this->shouldApplySourceRating($sourceMatch);
             $scheduledAt = filled($sourceMatch['scheduled_at'] ?? null)
                 ? Carbon::parse($sourceMatch['scheduled_at'], 'Asia/Kuala_Lumpur')
                 : null;
@@ -268,7 +347,7 @@ class TournamentSoftwareImportService
                 'club_id' => $tournament->club_id,
                 'tournament_id' => $tournament->id,
                 'tournament_category_id' => $category->id,
-                'status' => $status,
+                'status' => $shouldApplyRating ? 'pending_confirmation' : $status,
                 'played_at' => $scheduledAt?->toDateString() ?? $tournament->starts_at?->toDateString() ?? now()->toDateString(),
                 'scheduled_at' => $scheduledAt,
                 'court_label' => null,
@@ -288,7 +367,34 @@ class TournamentSoftwareImportService
 
             $this->attachSourcePlayer($match, $sourceMatch['side_a_source_player_id'] ?? null, 'A', $usersBySourcePlayerId);
             $this->attachSourcePlayer($match, $sourceMatch['side_b_source_player_id'] ?? null, 'B', $usersBySourcePlayerId);
+
+            if ($shouldApplyRating) {
+                app(RatingService::class)->confirmAsAdmin($match->fresh());
+            }
         }
+    }
+
+    private function resetImportedSinglesRatings(Collection $usersBySourcePlayerId): void
+    {
+        $userIds = $usersBySourcePlayerId->pluck('id')->all();
+
+        if (empty($userIds)) {
+            return;
+        }
+
+        PlayerProfile::whereIn('user_id', $userIds)->update([
+            'singles_rating' => RatingAlgorithm::DEFAULT_SETTINGS['starting_rating'],
+            'singles_matches' => 0,
+        ]);
+    }
+
+    private function shouldApplySourceRating(array $sourceMatch): bool
+    {
+        return ($sourceMatch['status'] ?? null) === 'confirmed'
+            && ! empty($sourceMatch['score'] ?? [])
+            && filled($sourceMatch['winner_side'] ?? null)
+            && filled($sourceMatch['side_a_source_player_id'] ?? null)
+            && filled($sourceMatch['side_b_source_player_id'] ?? null);
     }
 
     private function syncFirstRoundDrawPositions(TournamentCategory $category, array $sourceMatch): void

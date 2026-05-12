@@ -35,7 +35,7 @@
                             <td class="px-5 py-4 font-black">{{ $loop->iteration + ($players->currentPage() - 1) * $players->perPage() }}</td>
                             <td class="px-5 py-4">
                                 <a href="{{ route('players.show', $player) }}" class="font-black text-brand-blue hover:text-brand-green">{{ $player->display_name }}</a>
-                                <p class="text-sm text-brand-ink/50">{{ $player->user->clubs->first()?->name ?? 'Independent' }}</p>
+                                <p class="text-sm text-brand-ink/50">{{ $player->user->clubs->pluck('name')->join(', ') ?: 'Independent' }}</p>
                             </td>
                             <td class="px-5 py-4 text-brand-ink/70">{{ collect([$player->city, $player->state, $player->country])->filter()->join(', ') ?: 'Not set' }}</td>
                             <td class="px-5 py-4">{{ $format === 'singles' ? $player->singles_matches : $player->doubles_matches }}</td>

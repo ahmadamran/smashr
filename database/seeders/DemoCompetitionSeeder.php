@@ -109,7 +109,7 @@ class DemoCompetitionSeeder extends Seeder
                 ],
             );
 
-            $user->clubs()->sync([$club->id]);
+            $user->clubs()->syncWithoutDetaching([$club->id]);
 
             return $user->load('playerProfile', 'clubs');
         });
@@ -129,7 +129,7 @@ class DemoCompetitionSeeder extends Seeder
                     'primary_format' => 'doubles',
                 ],
             );
-            $testUser->clubs()->sync([$clubs->first()->id]);
+            $testUser->clubs()->syncWithoutDetaching([$clubs->first()->id]);
 
             return $demoPlayers->prepend($testUser->load('playerProfile', 'clubs'));
         }

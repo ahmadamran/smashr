@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Clubs\Models\Club;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Services\TournamentSoftwareImportService;
 use RuntimeException;
@@ -49,11 +50,46 @@ class TournamentSoftwareImportTest extends TestCase
         $this->assertSame(1, $tournament->categories()->where('slug', 'l12')->firstOrFail()->matches()->count());
         $this->assertSame(1, User::where('email', 'like', '%@import.smashr.test')->where('name', 'Ali Bin Ahmad')->count());
         $this->assertSame(5, User::where('email', 'like', '%@import.smashr.test')->count());
-
         app(TournamentSoftwareImportService::class)->import($this->playersHtml());
 
         $this->assertSame(1, Tournament::where('slug', 'mss-melaka-badminton-2026')->count());
         $this->assertSame(5, User::where('email', 'like', '%@import.smashr.test')->count());
+    }
+
+    public function test_snapshot_import_creates_school_clubs_without_replacing_existing_memberships(): void
+    {
+        app(TournamentSoftwareImportService::class)->import();
+
+        $schoolClub = Club::where('name', 'SJKC CHUNG HWA')->firstOrFail();
+        $user = User::where('email', 'ts-e4153-406@import.smashr.test')->firstOrFail();
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'admin@smashr.test',
+        ]);
+        $this->assertTrue($user->clubs()->whereKey($schoolClub->id)->exists());
+        $this->assertSame('Malaysia', $schoolClub->country);
+        $this->assertSame('Melaka', $schoolClub->state);
+        $this->assertSame('Melaka', $schoolClub->city);
+        $this->assertDatabaseHas('tournament_entrant_players', ['user_id' => $user->id, 'school_name' => 'SJKC CHUNG HWA']);
+
+        $extraClub = Club::create([
+            'name' => 'Existing Training Club',
+            'slug' => 'existing-training-club',
+            'country' => 'Malaysia',
+            'state' => 'Selangor',
+            'city' => 'Shah Alam',
+            'description' => 'Existing membership that import must preserve.',
+        ]);
+
+        $user->clubs()->syncWithoutDetaching([$extraClub->id]);
+
+        app(TournamentSoftwareImportService::class)->import();
+
+        $user->refresh();
+
+        $this->assertSame(1, Club::where('name', 'SJKC CHUNG HWA')->count());
+        $this->assertTrue($user->clubs()->whereKey($schoolClub->id)->exists());
+        $this->assertTrue($user->clubs()->whereKey($extraClub->id)->exists());
     }
 
     public function test_import_fails_when_players_are_not_exposed(): void

@@ -8,11 +8,12 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Modules\Matches\Models\MatchRecord;
-use Modules\Ratings\Models\RatingEvent;
 use Modules\Players\Models\PlayerProfile;
+use Modules\Ratings\Models\RatingEvent;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
+use Modules\Tournaments\Services\TournamentDrawService;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -618,6 +619,114 @@ class TournamentOrganizerTest extends TestCase
         $this->get(route('tournaments.matches', $tournament))->assertOk()->assertSee('Tournament schedule')->assertSee('Public A');
     }
 
+    public function test_public_tournament_players_page_lists_approved_players_and_searches_names_or_schools(): void
+    {
+        $organizer = $this->player('Players Page Owner');
+        $tournament = $this->tournament($organizer);
+        $singles = $this->category($tournament, 'Youth Singles', 'singles');
+        $doubles = $this->category($tournament, 'Youth Doubles', 'doubles');
+        $alpha = $this->player('Alpha Player');
+        $beta = $this->player('Beta Player');
+        $hidden = $this->player('Hidden Player');
+
+        $this->entrant($tournament, $singles, [$alpha], 'approved', 1, ['Alpha School']);
+        $this->entrant($tournament, $doubles, [$alpha, $this->player('Alpha Partner')], 'approved', 2, ['Alpha School', 'Partner School']);
+        $this->entrant($tournament, $singles, [$beta], 'approved', null, ['Beta Academy']);
+        $this->entrant($tournament, $singles, [$hidden], 'pending', null, ['Hidden School']);
+
+        $this->get(route('tournaments.players', $tournament))
+            ->assertOk()
+            ->assertSee('Players')
+            ->assertSee('Alpha Player')
+            ->assertSee('Youth Singles')
+            ->assertSee('Youth Doubles')
+            ->assertDontSee('Hidden Player');
+
+        Livewire::test('tournaments.players', ['tournament' => $tournament])
+            ->assertSee('Alpha Player')
+            ->assertSee('Beta Player')
+            ->assertDontSee('Hidden Player')
+            ->set('search', 'Alpha School')
+            ->assertSee('Alpha Player')
+            ->assertDontSee('Beta Player')
+            ->set('search', 'beta academy')
+            ->assertSee('Beta Player')
+            ->assertDontSee('Alpha Player');
+    }
+
+    public function test_tournament_draw_search_filters_by_player_or_school(): void
+    {
+        $organizer = $this->player('Draw Search Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Round Robin Singles', 'singles', 'round_robin', 3);
+        $bracketCategory = $this->category($tournament, 'Bracket Singles', 'singles');
+        $alpha = $this->player('Draw Alpha');
+        $beta = $this->player('Draw Beta');
+        $gamma = $this->player('Draw Gamma');
+        $delta = $this->player('Draw Delta');
+
+        $this->entrant($tournament, $category, [$alpha], 'approved', 1, ['Alpha School']);
+        $this->entrant($tournament, $category, [$beta], 'approved', 2, ['Beta Academy']);
+        $this->entrant($tournament, $category, [$gamma], 'approved', 3, ['Gamma Institute']);
+        $this->entrant($tournament, $bracketCategory, [$alpha], 'approved', 1, ['Alpha School']);
+        $this->entrant($tournament, $bracketCategory, [$beta], 'approved', 2, ['Beta Academy']);
+        $this->entrant($tournament, $bracketCategory, [$gamma], 'approved', 3, ['Gamma Institute']);
+        $this->entrant($tournament, $bracketCategory, [$delta], 'approved', 4, ['Delta College']);
+
+        app(TournamentDrawService::class)->generate($category);
+        app(TournamentDrawService::class)->generate($bracketCategory);
+
+        Livewire::test('tournaments.draw', ['tournament' => $tournament, 'category' => $category])
+            ->assertSee('Draw Alpha')
+            ->assertSee('Draw Beta')
+            ->set('search', 'gamma institute')
+            ->assertSee('Draw Gamma')
+            ->assertDontSee('Draw Alpha')
+            ->assertDontSee('Draw Beta');
+
+        Livewire::test('tournaments.draw', ['tournament' => $tournament, 'category' => $bracketCategory])
+            ->set('search', 'gamma institute')
+            ->assertSee('Draw Gamma')
+            ->assertDontSee('Draw Alpha')
+            ->assertDontSee('Draw Beta');
+    }
+
+    public function test_tournament_matches_search_filters_by_player_or_school_and_preserves_date_filter(): void
+    {
+        $organizer = $this->player('Matches Search Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Match Search Singles', 'singles', 'round_robin', 3);
+        $alpha = $this->player('Match Alpha');
+        $beta = $this->player('Match Beta');
+        $gamma = $this->player('Match Gamma');
+
+        $this->entrant($tournament, $category, [$alpha], 'approved', 1, ['Alpha School']);
+        $this->entrant($tournament, $category, [$beta], 'approved', 2, ['Beta Academy']);
+        $this->entrant($tournament, $category, [$gamma], 'approved', 3, ['Gamma Institute']);
+
+        app(TournamentDrawService::class)->generate($category, [
+            'schedule_start_time' => '09:00',
+            'match_duration_minutes' => 30,
+        ]);
+
+        $firstMatch = $category->matches()->with('players.user')->orderBy('id')->firstOrFail();
+        $category->matches()
+            ->whereKeyNot($firstMatch->id)
+            ->get()
+            ->each(fn (MatchRecord $match) => $match->forceFill([
+                'played_at' => now()->addDays(30)->toDateString(),
+                'scheduled_at' => now()->addDays(30)->setTime(9, 0),
+            ])->save());
+        $firstMatchPlayers = $firstMatch->players->pluck('user.name')->all();
+
+        Livewire::test('tournaments.matches', ['tournament' => $tournament, 'date' => $firstMatch->played_at->toDateString()])
+            ->assertSee($firstMatchPlayers[0])
+            ->assertDontSee('Match Gamma')
+            ->set('search', 'alpha school')
+            ->assertSee('Match Alpha')
+            ->assertDontSee('Match Gamma');
+    }
+
     private function tournament(User $organizer): Tournament
     {
         return Tournament::create([
@@ -648,7 +757,7 @@ class TournamentOrganizerTest extends TestCase
         ]);
     }
 
-    private function entrant(Tournament $tournament, TournamentCategory $category, array $players, string $status, ?int $seed = null): TournamentEntrant
+    private function entrant(Tournament $tournament, TournamentCategory $category, array $players, string $status, ?int $seed = null, array $schoolNames = []): TournamentEntrant
     {
         $entrant = $tournament->entrants()->create([
             'tournament_category_id' => $category->id,
@@ -658,7 +767,11 @@ class TournamentOrganizerTest extends TestCase
         ]);
 
         foreach ($players as $index => $player) {
-            $entrant->players()->create(['user_id' => $player->id, 'position' => $index + 1]);
+            $entrant->players()->create([
+                'user_id' => $player->id,
+                'school_name' => $schoolNames[$index] ?? null,
+                'position' => $index + 1,
+            ]);
         }
 
         return $entrant->load('players.user.playerProfile');

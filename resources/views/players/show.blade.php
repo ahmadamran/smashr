@@ -24,7 +24,7 @@
             <p class="text-xs font-black uppercase tracking-[.25em] text-brand-mist">Primary format</p>
             <h2 class="mt-3 text-3xl font-black">{{ ucfirst($player->primary_format) }}</h2>
             <p class="mt-6 text-white/70">{{ ucfirst($player->preferred_hand) }} handed</p>
-            <p class="text-white/70">{{ $player->user->clubs->first()?->name ?? 'Independent player' }}</p>
+            <p class="text-white/70">{{ $player->user->clubs->pluck('name')->join(', ') ?: 'Independent player' }}</p>
         </section>
         <section class="grid gap-6 md:grid-cols-2 lg:col-span-2">
             <div class="rounded-lg bg-white p-8 shadow-lg">
