@@ -3,14 +3,17 @@
 namespace Modules\Tournaments\Services;
 
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Modules\Matches\Models\MatchRecord;
+use Modules\Matches\Services\MatchScoreService;
 use Modules\Players\Models\PlayerProfile;
 use Modules\Tournaments\Models\Tournament;
+use Modules\Tournaments\Models\TournamentCategory;
 
 class TournamentSoftwareImportService
 {
@@ -30,51 +33,57 @@ class TournamentSoftwareImportService
 
     public function import(?string $playersHtml = null): Tournament
     {
+        $snapshot = $playersHtml === null ? $this->loadSnapshotPayload() : null;
         $players = $playersHtml === null
-            ? $this->loadSnapshotPlayers()
+            ? $this->normalizePlayers($snapshot['players'] ?? [])
             : $this->parsePlayers($playersHtml);
+        $sourceMatches = $snapshot['source_matches'] ?? [];
 
         if ($players->isEmpty()) {
             throw new RuntimeException('TournamentSoftware players page did not expose player rows. Provide/export player data before running this importer.');
         }
 
-        return DB::transaction(function () use ($players) {
-            $tournament = $this->upsertTournament();
-            $categories = $this->upsertCategories($tournament);
+        $tournament = $this->upsertTournament();
+        $categories = $this->upsertCategories($tournament);
+        $usersBySourcePlayerId = collect();
 
-            foreach ($players as $player) {
-                foreach ($player['events'] as $eventCode) {
-                    if (! isset($categories[$eventCode])) {
-                        continue;
-                    }
-
-                    $user = $this->upsertPlayer($player);
-                    $category = $categories[$eventCode];
-                    $entrant = $tournament->entrants()->updateOrCreate([
-                        'tournament_category_id' => $category->id,
-                        'name' => $player['name'],
-                    ], [
-                        'created_by' => $user->id,
-                        'status' => 'approved',
-                        'seed' => null,
-                    ]);
-
-                    $entrant->players()->delete();
-                    $entrant->players()->create([
-                        'user_id' => $user->id,
-                        'position' => 1,
-                    ]);
-                }
+        foreach ($players as $player) {
+            $user = $this->upsertPlayer($player);
+            if (filled($player['source_player_id'] ?? null)) {
+                $usersBySourcePlayerId->put((string) $player['source_player_id'], $user);
             }
 
-            foreach ($categories as $category) {
-                if ($category->approvedEntrants()->count() >= 2) {
-                    app(TournamentDrawService::class)->generate($category->fresh());
+            foreach ($player['events'] as $eventCode) {
+                if (! isset($categories[$eventCode])) {
+                    continue;
                 }
-            }
 
-            return $tournament->fresh('categories.entrants.players.user.playerProfile');
-        });
+                $category = $categories[$eventCode];
+                $entrant = $tournament->entrants()->updateOrCreate([
+                    'tournament_category_id' => $category->id,
+                    'name' => $player['name'],
+                ], [
+                    'created_by' => $user->id,
+                    'status' => 'approved',
+                    'seed' => null,
+                ]);
+
+                $entrant->players()->updateOrCreate(
+                    ['position' => 1],
+                    ['user_id' => $user->id],
+                );
+            }
+        }
+
+        foreach ($categories as $eventCode => $category) {
+            if (! empty($sourceMatches[$eventCode])) {
+                $this->syncSourceMatches($tournament, $category->fresh(), $sourceMatches[$eventCode], $usersBySourcePlayerId);
+            } elseif ($category->approvedEntrants()->count() >= 2) {
+                app(TournamentDrawService::class)->generate($category->fresh());
+            }
+        }
+
+        return $tournament->fresh('categories.entrants.players.user.playerProfile');
     }
 
     public function parsePlayers(string $html): Collection
@@ -95,17 +104,15 @@ class TournamentSoftwareImportService
             ->values();
     }
 
-    private function loadSnapshotPlayers(): Collection
+    private function loadSnapshotPayload(): ?array
     {
         $path = database_path(self::SNAPSHOT_PATH);
 
         if (is_file($path)) {
-            $payload = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
-
-            return $this->normalizePlayers($payload['players'] ?? []);
+            return json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
         }
 
-        return $this->parsePlayers($this->fetchPlayersHtml());
+        return ['players' => $this->parsePlayers($this->fetchPlayersHtml())->all()];
     }
 
     private function normalizePlayers(array $players): Collection
@@ -198,21 +205,23 @@ class TournamentSoftwareImportService
     private function upsertPlayer(array $player): User
     {
         $name = $player['name'];
-        $sourcePlayerId = $player['source_player_id'] ?? null;
         $slug = Str::slug($name) ?: 'player';
-        $email = $sourcePlayerId
-            ? 'ts-e4153-'.$sourcePlayerId.'@import.smashr.test'
-            : $slug.'-mss-melaka-2026@import.smashr.test';
+        $email = $this->playerImportEmail($player);
 
-        $user = User::updateOrCreate(
-            ['email' => $email],
-            [
-                'name' => $name,
-                'email_verified_at' => now(),
-                'password' => Hash::make(Str::random(32)),
-                'suspended_at' => null,
-            ],
-        );
+        $user = User::firstOrNew(['email' => $email]);
+        $user->name = $name;
+        $user->suspended_at = null;
+
+        if (! $user->exists) {
+            $user->email_verified_at = now();
+            $user->password = Hash::make(Str::random(32));
+        } elseif ($user->email_verified_at === null) {
+            $user->email_verified_at = now();
+        }
+
+        if (! $user->exists || $user->isDirty()) {
+            $user->save();
+        }
 
         PlayerProfile::updateOrCreate(
             ['user_id' => $user->id],
@@ -228,6 +237,122 @@ class TournamentSoftwareImportService
         );
 
         return $user;
+    }
+
+    private function syncSourceMatches(Tournament $tournament, TournamentCategory $category, array $sourceMatches, Collection $usersBySourcePlayerId): void
+    {
+        $scores = app(MatchScoreService::class);
+
+        MatchRecord::where('tournament_category_id', $category->id)->delete();
+
+        foreach ($sourceMatches as $sourceMatch) {
+            $this->syncFirstRoundDrawPositions($category, $sourceMatch);
+        }
+
+        foreach ($sourceMatches as $sourceMatch) {
+            if ($this->isByeOnlySourceMatch($sourceMatch)) {
+                continue;
+            }
+
+            $score = $sourceMatch['score'] ?? [];
+            $scheduledAt = filled($sourceMatch['scheduled_at'] ?? null)
+                ? Carbon::parse($sourceMatch['scheduled_at'], 'Asia/Kuala_Lumpur')
+                : null;
+            $status = ($sourceMatch['status'] ?? null) === 'confirmed' && (! empty($score) || filled($sourceMatch['result_note'] ?? null))
+                ? 'confirmed'
+                : 'pending_confirmation';
+
+            $match = MatchRecord::create([
+                'format' => 'singles',
+                'submitted_by' => $tournament->organizer_id,
+                'club_id' => $tournament->club_id,
+                'tournament_id' => $tournament->id,
+                'tournament_category_id' => $category->id,
+                'status' => $status,
+                'played_at' => $scheduledAt?->toDateString() ?? $tournament->starts_at?->toDateString() ?? now()->toDateString(),
+                'scheduled_at' => $scheduledAt,
+                'court_label' => null,
+                'estimated_duration_minutes' => 20,
+                'score' => $score,
+                'winner_side' => $sourceMatch['winner_side'] ?: 'A',
+                'draw_round' => $sourceMatch['draw_round'] ?? null,
+                'draw_group' => null,
+                'draw_position' => $sourceMatch['draw_position'] ?? null,
+                'live_status' => $status === 'confirmed' ? 'approved' : 'scheduled',
+                'live_score' => array_replace_recursive($scores->initialLiveScore(), [
+                    'current_game' => count($score) + 1,
+                    'games' => $score,
+                ]),
+                'score_submitted_at' => $status === 'confirmed' ? ($scheduledAt ?? now()) : null,
+            ]);
+
+            $this->attachSourcePlayer($match, $sourceMatch['side_a_source_player_id'] ?? null, 'A', $usersBySourcePlayerId);
+            $this->attachSourcePlayer($match, $sourceMatch['side_b_source_player_id'] ?? null, 'B', $usersBySourcePlayerId);
+        }
+    }
+
+    private function syncFirstRoundDrawPositions(TournamentCategory $category, array $sourceMatch): void
+    {
+        if ((int) ($sourceMatch['draw_round'] ?? 0) !== 1 || ! filled($sourceMatch['draw_position'] ?? null)) {
+            return;
+        }
+
+        $positions = [
+            'side_a_source_player_id' => (((int) $sourceMatch['draw_position']) * 2) - 1,
+            'side_b_source_player_id' => ((int) $sourceMatch['draw_position']) * 2,
+        ];
+
+        foreach ($positions as $key => $position) {
+            $sourcePlayerId = $sourceMatch[$key] ?? null;
+            if (! $sourcePlayerId) {
+                continue;
+            }
+
+            $email = 'ts-e4153-'.$sourcePlayerId.'@import.smashr.test';
+            $userId = User::where('email', $email)->value('id');
+            if (! $userId) {
+                continue;
+            }
+
+            $category->entrants()
+                ->whereHas('players', fn ($players) => $players->where('user_id', $userId))
+                ->update(['draw_position' => $position, 'group_name' => null]);
+        }
+    }
+
+    private function isByeOnlySourceMatch(array $sourceMatch): bool
+    {
+        $sideCount = collect([
+            $sourceMatch['side_a_source_player_id'] ?? null,
+            $sourceMatch['side_b_source_player_id'] ?? null,
+        ])->filter()->count();
+
+        return $sideCount === 1
+            && empty($sourceMatch['score'] ?? [])
+            && blank($sourceMatch['scheduled_at'] ?? null);
+    }
+
+    private function attachSourcePlayer(MatchRecord $match, ?string $sourcePlayerId, string $side, Collection $usersBySourcePlayerId): void
+    {
+        if (! $sourcePlayerId || ! $usersBySourcePlayerId->has((string) $sourcePlayerId)) {
+            return;
+        }
+
+        $match->players()->create([
+            'user_id' => $usersBySourcePlayerId->get((string) $sourcePlayerId)->id,
+            'side' => $side,
+            'position' => 1,
+        ]);
+    }
+
+    private function playerImportEmail(array $player): string
+    {
+        $sourcePlayerId = $player['source_player_id'] ?? null;
+        $slug = Str::slug($player['name']) ?: 'player';
+
+        return $sourcePlayerId
+            ? 'ts-e4153-'.$sourcePlayerId.'@import.smashr.test'
+            : $slug.'-mss-melaka-2026@import.smashr.test';
     }
 
     private function parsePlayerRow(string $row): ?array
