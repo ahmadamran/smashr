@@ -53,7 +53,7 @@
                     <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Categories</p>
                     <h2 class="text-2xl font-black text-brand-blue">Draws and entrants</h2>
                 </div>
-                <a href="{{ route('tournaments.matches', $tournament) }}" class="w-fit rounded-full border border-brand-ink/10 px-4 py-2 text-xs font-black uppercase text-brand-blue">Schedule</a>
+                <a href="{{ route('tournaments.matches', $tournament) }}" class="w-fit rounded-full border border-brand-ink/10 px-4 py-2 text-xs font-black uppercase text-brand-blue">Matches</a>
             </div>
             <div class="mt-6 grid gap-5 lg:grid-cols-2">
                 @forelse ($tournament->categories as $category)

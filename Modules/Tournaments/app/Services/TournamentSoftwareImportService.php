@@ -37,66 +37,75 @@ class TournamentSoftwareImportService
         'P18' => ['name' => 'Girls Under 18', 'format' => 'singles', 'level_label' => 'Under 18 Girls'],
     ];
 
-    public function import(?string $playersHtml = null): Tournament
+    private array $config = [];
+
+    public function import(?string $playersHtml = null, array $config = []): Tournament
     {
-        $snapshot = $playersHtml === null ? $this->loadSnapshotPayload() : null;
-        $players = $playersHtml === null
-            ? $this->normalizePlayers($snapshot['players'] ?? [])
-            : $this->parsePlayers($playersHtml);
-        $sourceMatches = $snapshot['source_matches'] ?? [];
+        $previousConfig = $this->config;
+        $this->config = $config;
 
-        if ($players->isEmpty()) {
-            throw new RuntimeException('TournamentSoftware players page did not expose player rows. Provide/export player data before running this importer.');
-        }
+        try {
+            $snapshot = $playersHtml === null ? $this->loadSnapshotPayload() : null;
+            $players = $playersHtml === null
+                ? $this->normalizePlayers($snapshot['players'] ?? [])
+                : $this->parsePlayers($playersHtml);
+            $sourceMatches = $snapshot['source_matches'] ?? [];
 
-        $tournament = $this->upsertTournament();
-        $categories = $this->upsertCategories($tournament);
-        $usersBySourcePlayerId = collect();
-
-        foreach ($players as $player) {
-            $user = $this->upsertPlayer($player);
-            $this->syncSchoolClub($user, $player);
-
-            if (filled($player['source_player_id'] ?? null)) {
-                $usersBySourcePlayerId->put((string) $player['source_player_id'], $user);
+            if ($players->isEmpty()) {
+                throw new RuntimeException('TournamentSoftware players page did not expose player rows. Provide/export player data before running this importer.');
             }
 
-            foreach ($player['events'] as $eventCode) {
-                if (! isset($categories[$eventCode])) {
-                    continue;
+            $tournament = $this->upsertTournament();
+            $categories = $this->upsertCategories($tournament);
+            $usersBySourcePlayerId = collect();
+
+            foreach ($players as $player) {
+                $user = $this->upsertPlayer($player);
+                $this->syncSchoolClub($user, $player);
+
+                if (filled($player['source_player_id'] ?? null)) {
+                    $usersBySourcePlayerId->put((string) $player['source_player_id'], $user);
                 }
 
-                $category = $categories[$eventCode];
-                $entrant = $tournament->entrants()->updateOrCreate([
-                    'tournament_category_id' => $category->id,
-                    'name' => $player['name'],
-                ], [
-                    'created_by' => $user->id,
-                    'status' => 'approved',
-                    'seed' => null,
-                ]);
+                foreach ($player['events'] as $eventCode) {
+                    if (! isset($categories[$eventCode])) {
+                        continue;
+                    }
 
-                $entrant->players()->updateOrCreate(
-                    ['position' => 1],
-                    [
-                        'user_id' => $user->id,
-                        'school_name' => filled($player['school'] ?? null) ? $player['school'] : null,
-                    ],
-                );
+                    $category = $categories[$eventCode];
+                    $entrant = $tournament->entrants()->updateOrCreate([
+                        'tournament_category_id' => $category->id,
+                        'name' => $player['name'],
+                    ], [
+                        'created_by' => $user->id,
+                        'status' => 'approved',
+                        'seed' => null,
+                    ]);
+
+                    $entrant->players()->updateOrCreate(
+                        ['position' => 1],
+                        [
+                            'user_id' => $user->id,
+                            'school_name' => filled($player['school'] ?? null) ? $player['school'] : null,
+                        ],
+                    );
+                }
             }
-        }
 
-        $this->resetImportedSinglesRatings($usersBySourcePlayerId);
+            $this->resetImportedSinglesRatings($usersBySourcePlayerId);
 
-        foreach ($categories as $eventCode => $category) {
-            if (! empty($sourceMatches[$eventCode])) {
-                $this->syncSourceMatches($tournament, $category->fresh(), $sourceMatches[$eventCode], $usersBySourcePlayerId);
-            } elseif ($category->approvedEntrants()->count() >= 2) {
-                app(TournamentDrawService::class)->generate($category->fresh());
+            foreach ($categories as $eventCode => $category) {
+                if (! empty($sourceMatches[$eventCode])) {
+                    $this->syncSourceMatches($tournament, $category->fresh(), $sourceMatches[$eventCode], $usersBySourcePlayerId);
+                } elseif ($category->approvedEntrants()->count() >= 2) {
+                    app(TournamentDrawService::class)->generate($category->fresh());
+                }
             }
-        }
 
-        return $tournament->fresh('categories.entrants.players.user.playerProfile');
+            return $tournament->fresh('categories.entrants.players.user.playerProfile');
+        } finally {
+            $this->config = $previousConfig;
+        }
     }
 
     public function parsePlayers(string $html): Collection
@@ -119,7 +128,7 @@ class TournamentSoftwareImportService
 
     private function loadSnapshotPayload(): ?array
     {
-        $path = database_path(self::SNAPSHOT_PATH);
+        $path = database_path($this->snapshotPath());
 
         if (is_file($path)) {
             return json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
@@ -134,7 +143,7 @@ class TournamentSoftwareImportService
             ->map(function (array $player) {
                 $events = collect($player['events'] ?? [])
                     ->map(fn (string $event) => Str::upper($event))
-                    ->filter(fn (string $event) => array_key_exists($event, self::EVENTS))
+                    ->filter(fn (string $event) => array_key_exists($event, $this->events()))
                     ->unique()
                     ->values()
                     ->all();
@@ -164,7 +173,7 @@ class TournamentSoftwareImportService
                 'User-Agent' => 'Mozilla/5.0 Smashr Tournament Importer',
                 'Cookie' => 'st=l=1033&c=1',
             ])
-            ->get(self::PLAYERS_URL);
+            ->get($this->playersUrl());
 
         if (! $response->ok()) {
             throw new RuntimeException('TournamentSoftware players page returned HTTP '.$response->status().'.');
@@ -178,21 +187,21 @@ class TournamentSoftwareImportService
         $organizer = $this->upsertImportOrganizer();
 
         return Tournament::updateOrCreate(
-            ['slug' => 'mss-melaka-badminton-2026'],
+            ['slug' => $this->tournamentSlug()],
             [
                 'club_id' => null,
                 'organizer_id' => $organizer->id,
-                'name' => 'MSS MELAKA BADMINTON 2026',
-                'country' => 'Malaysia',
-                'state' => 'Melaka',
-                'city' => 'Melaka',
-                'venue' => 'Melaka',
-                'starts_at' => '2026-05-12',
-                'ends_at' => '2026-05-14',
+                'name' => $this->tournamentName(),
+                'country' => $this->config['country'] ?? 'Malaysia',
+                'state' => $this->config['state'] ?? 'Melaka',
+                'city' => $this->config['city'] ?? 'Melaka',
+                'venue' => $this->config['venue'] ?? ($this->config['city'] ?? 'Melaka'),
+                'starts_at' => $this->config['starts_at'] ?? '2026-05-12',
+                'ends_at' => $this->config['ends_at'] ?? '2026-05-14',
                 'status' => 'published',
                 'registration_mode' => 'private',
                 'registration_status' => 'closed',
-                'registration_deadline' => '2026-05-11',
+                'registration_deadline' => $this->config['registration_deadline'] ?? '2026-05-11',
             ],
         );
     }
@@ -217,7 +226,7 @@ class TournamentSoftwareImportService
 
     private function upsertCategories(Tournament $tournament): array
     {
-        return collect(self::EVENTS)->mapWithKeys(function (array $event, string $code) use ($tournament) {
+        return collect($this->events())->mapWithKeys(function (array $event, string $code) use ($tournament) {
             $category = $tournament->categories()->updateOrCreate(
                 ['slug' => Str::lower($code)],
                 [
@@ -260,10 +269,10 @@ class TournamentSoftwareImportService
             ['user_id' => $user->id],
             [
                 'display_name' => $name,
-                'slug' => 'mss-melaka-2026-'.$slug,
+                'slug' => $this->profileSlugPrefix().$slug,
                 'country' => 'Malaysia',
-                'state' => 'Melaka',
-                'city' => 'Melaka',
+                'state' => $this->config['state'] ?? 'Melaka',
+                'city' => $this->config['city'] ?? 'Melaka',
                 'gender' => $this->genderFromEvents($player['events'] ?? []),
                 'preferred_hand' => 'right',
                 'primary_format' => 'singles',
@@ -302,9 +311,9 @@ class TournamentSoftwareImportService
                 'name' => $school,
                 'slug' => $this->uniqueClubSlug(Str::slug($school) ?: 'school'),
                 'country' => 'Malaysia',
-                'state' => 'Melaka',
-                'city' => 'Melaka',
-                'description' => 'School imported from MSS MELAKA BADMINTON 2026 via TournamentSoftware.',
+                'state' => $this->config['state'] ?? 'Melaka',
+                'city' => $this->config['city'] ?? 'Melaka',
+                'description' => 'School imported from '.$this->tournamentName().' via TournamentSoftware.',
             ]);
         }
 
@@ -420,7 +429,7 @@ class TournamentSoftwareImportService
                 continue;
             }
 
-            $email = 'ts-e4153-'.$sourcePlayerId.'@import.smashr.test';
+            $email = $this->sourcePlayerEmail($sourcePlayerId);
             $userId = User::where('email', $email)->value('id');
             if (! $userId) {
                 continue;
@@ -463,8 +472,8 @@ class TournamentSoftwareImportService
         $slug = Str::slug($player['name']) ?: 'player';
 
         return $sourcePlayerId
-            ? 'ts-e4153-'.$sourcePlayerId.'@import.smashr.test'
-            : $slug.'-mss-melaka-2026@import.smashr.test';
+            ? $this->sourcePlayerEmail($sourcePlayerId)
+            : $slug.'-'.$this->tournamentSlug().'@import.smashr.test';
     }
 
     private function parsePlayerRow(string $row): ?array
@@ -472,7 +481,7 @@ class TournamentSoftwareImportService
         preg_match_all('/\b[LP](?:12|15|18)\b/i', $row, $matches);
         $events = collect($matches[0] ?? [])
             ->map(fn (string $event) => Str::upper($event))
-            ->filter(fn (string $event) => array_key_exists($event, self::EVENTS))
+            ->filter(fn (string $event) => array_key_exists($event, $this->events()))
             ->unique()
             ->values()
             ->all();
@@ -508,5 +517,40 @@ class TournamentSoftwareImportService
         $html = preg_replace('/<\/(tr|p|div|li)>/i', "\n", $html);
 
         return trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5));
+    }
+
+    private function events(): array
+    {
+        return $this->config['events'] ?? self::EVENTS;
+    }
+
+    private function playersUrl(): string
+    {
+        return $this->config['players_url'] ?? self::PLAYERS_URL;
+    }
+
+    private function snapshotPath(): string
+    {
+        return $this->config['snapshot_path'] ?? self::SNAPSHOT_PATH;
+    }
+
+    private function tournamentSlug(): string
+    {
+        return $this->config['slug'] ?? 'mss-melaka-badminton-2026';
+    }
+
+    private function tournamentName(): string
+    {
+        return $this->config['name'] ?? 'MSS MELAKA BADMINTON 2026';
+    }
+
+    private function profileSlugPrefix(): string
+    {
+        return $this->config['profile_slug_prefix'] ?? 'mss-melaka-2026-';
+    }
+
+    private function sourcePlayerEmail(string $sourcePlayerId): string
+    {
+        return ($this->config['email_prefix'] ?? 'ts-e4153-').$sourcePlayerId.'@import.smashr.test';
     }
 }

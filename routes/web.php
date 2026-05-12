@@ -634,6 +634,19 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
 
         return redirect()->route('admin.users')->with('status', 'User deleted.');
     })->name('users.destroy');
+    Route::post('users/{user}/merge', function (User $user, UserAdminService $users) {
+        $data = request()->validate(['source_ids' => ['required', 'string', 'max:255']]);
+        $sourceIds = collect(preg_split('/[\s,]+/', $data['source_ids'], -1, PREG_SPLIT_NO_EMPTY))
+            ->map(fn (string $id) => (int) $id)
+            ->filter()
+            ->all();
+
+        abort_if(in_array(auth()->id(), $sourceIds, true), 422, 'You cannot merge your own signed-in account into another user.');
+
+        $merged = $users->merge($user, $data['source_ids']);
+
+        return back()->with('status', "{$merged} duplicate user account(s) merged into {$user->name}.");
+    })->name('users.merge');
     Route::patch('users/{user}/superadmin', function (User $user, UserAdminService $users) {
         $users->setSuperadmin($user, request()->boolean('enabled'));
 
@@ -691,6 +704,12 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('admin')->name('admin.')-
 
         return redirect()->route('admin.clubs')->with('status', 'Club deleted.');
     })->name('clubs.destroy');
+    Route::post('clubs/{club}/merge', function (Club $club, ClubAdminService $clubs) {
+        $data = request()->validate(['source_ids' => ['required', 'string', 'max:255']]);
+        $merged = $clubs->merge($club, $data['source_ids']);
+
+        return back()->with('status', "{$merged} duplicate club(s) merged into {$club->name}.");
+    })->name('clubs.merge');
     Route::post('clubs/{club}/members', function (Club $club, ClubAdminService $clubs) {
         $data = request()->validate(['email' => ['required', 'email', 'exists:users,email']]);
         $clubs->addMember($club, $data['email']);

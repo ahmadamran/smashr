@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Modules\Matches\Models\MatchRecord;
@@ -616,7 +617,14 @@ class TournamentOrganizerTest extends TestCase
             ->assertSee('Semifinals')
             ->assertSee('Final')
             ->assertSee('Winner Match 1');
-        $this->get(route('tournaments.matches', $tournament))->assertOk()->assertSee('Tournament schedule')->assertSee('Public A');
+        $this->get(route('tournaments.matches', $tournament))
+            ->assertOk()
+            ->assertSee('Matches')
+            ->assertSee('Public A')
+            ->assertSee('List')
+            ->assertSee('Grid')
+            ->assertDontSee('Tournament schedule')
+            ->assertDontSee('Filter date');
     }
 
     public function test_public_tournament_players_page_lists_approved_players_and_searches_names_or_schools(): void
@@ -628,6 +636,8 @@ class TournamentOrganizerTest extends TestCase
         $alpha = $this->player('Alpha Player');
         $beta = $this->player('Beta Player');
         $hidden = $this->player('Hidden Player');
+        $alpha->playerProfile->forceFill(['gender' => 'male'])->save();
+        $beta->playerProfile->forceFill(['gender' => 'female'])->save();
 
         $this->entrant($tournament, $singles, [$alpha], 'approved', 1, ['Alpha School']);
         $this->entrant($tournament, $doubles, [$alpha, $this->player('Alpha Partner')], 'approved', 2, ['Alpha School', 'Partner School']);
@@ -651,7 +661,16 @@ class TournamentOrganizerTest extends TestCase
             ->assertDontSee('Beta Player')
             ->set('search', 'beta academy')
             ->assertSee('Beta Player')
-            ->assertDontSee('Alpha Player');
+            ->assertDontSee('Alpha Player')
+            ->set('search', '')
+            ->set('gender', 'female')
+            ->assertSee('Beta Player')
+            ->assertDontSee('Alpha Player')
+            ->set('gender', '')
+            ->set('category', (string) $doubles->id)
+            ->assertSee('Youth Doubles')
+            ->assertSee('Alpha Player')
+            ->assertDontSee('Beta Player');
     }
 
     public function test_tournament_draw_search_filters_by_player_or_school(): void
@@ -727,6 +746,55 @@ class TournamentOrganizerTest extends TestCase
             ->assertDontSee('Match Gamma');
     }
 
+    public function test_tournament_matches_use_real_date_tabs_defaults_and_grid_view(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-13 10:00:00'));
+
+        try {
+            $organizer = $this->player('Date Tabs Owner');
+            $tournament = $this->tournament($organizer);
+            $category = $this->category($tournament, 'Date Tabs Singles', 'singles');
+            $opponent = $this->player('Date Tabs Opponent');
+
+            $pastMatch = $this->scheduledTournamentMatch($tournament, $category, $this->player('Past Date Player'), $opponent, '2026-05-12', 'Court 1');
+            $todayMatch = $this->scheduledTournamentMatch($tournament, $category, $this->player('Today Date Player'), $opponent, '2026-05-13', 'Court 2');
+            $futureMatch = $this->scheduledTournamentMatch($tournament, $category, $this->player('Future Date Player'), $opponent, '2026-05-15', 'Court 3');
+            $liveMatch = $this->scheduledTournamentMatch($tournament, $category, $this->player('Live Remote Player'), $opponent, '2026-05-12', 'Court Live', 'live');
+
+            Livewire::test('tournaments.matches', ['tournament' => $tournament, 'date' => '2026-05-14'])
+                ->assertSee('May 12')
+                ->assertSee('May 13')
+                ->assertSee('May 15')
+                ->assertSee('Today Date Player')
+                ->assertSee('Live Remote Player')
+                ->assertDontSee('Past Date Player')
+                ->assertDontSee('Future Date Player');
+
+            Carbon::setTestNow(Carbon::parse('2026-05-01 10:00:00'));
+
+            Livewire::test('tournaments.matches', ['tournament' => $tournament])
+                ->assertSee('Past Date Player')
+                ->assertDontSee('Today Date Player')
+                ->assertDontSee('Future Date Player');
+
+            Carbon::setTestNow(Carbon::parse('2026-05-20 10:00:00'));
+
+            Livewire::test('tournaments.matches', ['tournament' => $tournament, 'view' => 'grid'])
+                ->assertSee('Grid view')
+                ->assertSee('Court 3')
+                ->assertSee('Future Date Player')
+                ->assertDontSee('Past Date Player')
+                ->assertDontSee('Today Date Player');
+
+            $this->assertSame('2026-05-12', $pastMatch->played_at->toDateString());
+            $this->assertSame('2026-05-13', $todayMatch->played_at->toDateString());
+            $this->assertSame('2026-05-15', $futureMatch->played_at->toDateString());
+            $this->assertSame('live', $liveMatch->live_status);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     private function tournament(User $organizer): Tournament
     {
         return Tournament::create([
@@ -796,6 +864,28 @@ class TournamentOrganizerTest extends TestCase
         ]);
 
         return $user->load('playerProfile');
+    }
+
+    private function scheduledTournamentMatch(Tournament $tournament, TournamentCategory $category, User $sideA, User $sideB, string $date, string $court, string $liveStatus = 'scheduled'): MatchRecord
+    {
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $sideA->id,
+            'tournament_id' => $tournament->id,
+            'tournament_category_id' => $category->id,
+            'status' => 'pending_confirmation',
+            'played_at' => $date,
+            'scheduled_at' => Carbon::parse($date.' 09:00:00'),
+            'court_label' => $court,
+            'score' => [],
+            'winner_side' => 'A',
+            'live_status' => $liveStatus,
+        ]);
+
+        $match->players()->create(['user_id' => $sideA->id, 'side' => 'A', 'position' => 1]);
+        $match->players()->create(['user_id' => $sideB->id, 'side' => 'B', 'position' => 1]);
+
+        return $match;
     }
 
     private function scoreGame($component, int $sideA, int $sideB): void

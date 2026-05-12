@@ -58,5 +58,14 @@ const initSmashr = () => {
     initBulkSelectors();
 };
 
+const cleanupModalState = () => {
+    document.body.classList.remove('overflow-y-hidden');
+
+    document.querySelectorAll('[data-modal-root]').forEach((modal) => {
+        modal.style.display = 'none';
+    });
+};
+
 document.addEventListener('DOMContentLoaded', initSmashr);
+document.addEventListener('livewire:navigating', cleanupModalState);
 document.addEventListener('livewire:navigated', initSmashr);

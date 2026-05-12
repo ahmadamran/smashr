@@ -13,6 +13,10 @@ new class extends Component
 
     public string $search = '';
 
+    public string $gender = '';
+
+    public string $category = '';
+
     public function mount(Tournament $tournament): void
     {
         $this->tournamentId = $tournament->id;
@@ -39,6 +43,8 @@ new class extends Component
     public function filteredEntrants(): Collection
     {
         return $this->approvedEntrants()
+            ->filter(fn (TournamentEntrant $entrant) => $this->entrantMatchesCategory($entrant))
+            ->filter(fn (TournamentEntrant $entrant) => $this->entrantMatchesGender($entrant))
             ->filter(fn (TournamentEntrant $entrant) => $this->entrantMatchesSearch($entrant))
             ->values();
     }
@@ -47,18 +53,22 @@ new class extends Component
     {
         return $this->filteredEntrants()
             ->flatMap(function (TournamentEntrant $entrant) {
-                return $entrant->players->map(fn (TournamentEntrantPlayer $player) => [
-                    'key' => $this->playerKey($player),
-                    'name' => $player->displayName(),
-                    'school' => $player->school_name,
-                    'profile' => $player->user?->playerProfile,
-                    'singles_rating' => $player->user?->playerProfile?->singles_rating,
-                    'singles_matches' => $player->user?->playerProfile?->singles_matches ?? 0,
-                    'doubles_rating' => $player->user?->playerProfile?->doubles_rating,
-                    'doubles_matches' => $player->user?->playerProfile?->doubles_matches ?? 0,
-                    'category' => $entrant->category?->name ?? 'Unassigned event',
-                    'seed' => $entrant->seed,
-                ]);
+                return $entrant->players
+                    ->filter(fn (TournamentEntrantPlayer $player) => $this->playerMatchesGender($player))
+                    ->filter(fn (TournamentEntrantPlayer $player) => $this->playerMatchesSearch($player))
+                    ->map(fn (TournamentEntrantPlayer $player) => [
+                        'key' => $this->playerKey($player),
+                        'name' => $player->displayName(),
+                        'school' => $player->school_name,
+                        'profile' => $player->user?->playerProfile,
+                        'singles_rating' => $player->user?->playerProfile?->singles_rating,
+                        'singles_matches' => $player->user?->playerProfile?->singles_matches ?? 0,
+                        'doubles_rating' => $player->user?->playerProfile?->doubles_rating,
+                        'doubles_matches' => $player->user?->playerProfile?->doubles_matches ?? 0,
+                        'gender' => $player->user?->playerProfile?->gender,
+                        'category' => $entrant->category?->name ?? 'Unassigned event',
+                        'seed' => $entrant->seed,
+                    ]);
             })
             ->groupBy('key')
             ->map(function (Collection $rows) {
@@ -72,6 +82,7 @@ new class extends Component
                     'singles_matches' => $first['singles_matches'],
                     'doubles_rating' => $first['doubles_rating'],
                     'doubles_matches' => $first['doubles_matches'],
+                    'gender' => $first['gender'],
                     'categories' => $rows->pluck('category')->unique()->sort()->values(),
                     'seeds' => $rows->pluck('seed')->filter()->unique()->sort()->values(),
                 ];
@@ -87,6 +98,37 @@ new class extends Component
             ->sortBy(fn (Collection $entrants) => $entrants->first()?->category?->name ?? 'Unassigned event');
     }
 
+    public function categoryOptions(): Collection
+    {
+        return $this->tournament()
+            ->categories
+            ->sortBy('name')
+            ->map(fn ($category) => ['id' => (string) $category->id, 'name' => $category->name])
+            ->values();
+    }
+
+    public function hasFilters(): bool
+    {
+        return $this->search !== '' || $this->gender !== '' || $this->category !== '';
+    }
+
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->gender = '';
+        $this->category = '';
+    }
+
+    private function entrantMatchesCategory(TournamentEntrant $entrant): bool
+    {
+        return $this->category === '' || (string) $entrant->tournament_category_id === $this->category;
+    }
+
+    private function entrantMatchesGender(TournamentEntrant $entrant): bool
+    {
+        return $this->gender === '' || $entrant->players->contains(fn (TournamentEntrantPlayer $player) => $this->playerMatchesGender($player));
+    }
+
     private function entrantMatchesSearch(TournamentEntrant $entrant): bool
     {
         $search = $this->normalizedSearch();
@@ -95,7 +137,19 @@ new class extends Component
             return true;
         }
 
-        return $entrant->players->contains(fn (TournamentEntrantPlayer $player) => str_contains($this->searchText($player), $search));
+        return $entrant->players->contains(fn (TournamentEntrantPlayer $player) => $this->playerMatchesSearch($player));
+    }
+
+    private function playerMatchesGender(TournamentEntrantPlayer $player): bool
+    {
+        return $this->gender === '' || $player->user?->playerProfile?->gender === $this->gender;
+    }
+
+    private function playerMatchesSearch(TournamentEntrantPlayer $player): bool
+    {
+        $search = $this->normalizedSearch();
+
+        return $search === '' || str_contains($this->searchText($player), $search);
     }
 
     private function searchText(TournamentEntrantPlayer $player): string
@@ -127,6 +181,7 @@ new class extends Component
 <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
     @php
         $tournament = $this->tournament();
+        $categoryOptions = $this->categoryOptions();
         $approvedEntrants = $this->approvedEntrants();
         $directoryRows = $this->directoryRows();
         $entrantsByCategory = $this->entrantsByCategory();
@@ -137,7 +192,39 @@ new class extends Component
     @endphp
 
     @include('tournaments.partials.nav', ['tournament' => $tournament])
-    @include('tournaments.partials.realtime-search', ['search' => $search, 'id' => 'tournament-player-search'])
+
+    <section class="mb-6 rounded-lg bg-white p-5 shadow-lg">
+        <div class="grid gap-3 md:grid-cols-[minmax(13rem,1.4fr)_minmax(8rem,.7fr)_minmax(12rem,1fr)_auto] md:items-end">
+            <input
+                id="tournament-player-search"
+                type="search"
+                wire:model.live.debounce.250ms="search"
+                placeholder="Search players or school"
+                class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink placeholder:text-brand-ink/40"
+            >
+
+            <select wire:model.live="gender" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink">
+                <option value="">All genders</option>
+                <option value="male">Men</option>
+                <option value="female">Women</option>
+            </select>
+
+            <select wire:model.live="category" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink">
+                <option value="">All categories</option>
+                @foreach ($categoryOptions as $option)
+                    <option value="{{ $option['id'] }}">{{ $option['name'] }}</option>
+                @endforeach
+            </select>
+
+            @if ($this->hasFilters())
+                <button type="button" wire:click="clearFilters" class="rounded-md border border-brand-ink/10 px-4 py-2 text-sm font-black uppercase text-brand-blue">
+                    Clear
+                </button>
+            @else
+                <span class="hidden md:block"></span>
+            @endif
+        </div>
+    </section>
 
     <section class="mb-6 grid gap-4 md:grid-cols-3">
         <div class="rounded-lg bg-white p-5 shadow-lg">
@@ -160,7 +247,7 @@ new class extends Component
                 <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">All players</p>
                 <h2 class="mt-1 text-2xl font-black text-brand-blue">Player directory</h2>
             </div>
-            @if ($search !== '')
+            @if ($this->hasFilters())
                 <p class="text-sm font-bold text-brand-ink/50">{{ $directoryRows->count() }} matches</p>
             @endif
         </div>
@@ -176,6 +263,9 @@ new class extends Component
                         @endif
                         @if ($row['school'])
                             <p class="mt-1 text-sm font-bold text-brand-ink/55">{{ $row['school'] }}</p>
+                        @endif
+                        @if ($row['gender'])
+                            <p class="mt-1 text-xs font-black uppercase text-brand-ink/40">{{ str_replace('_', ' ', $row['gender']) }}</p>
                         @endif
                     </div>
                     <div class="flex flex-wrap gap-2">
@@ -197,7 +287,7 @@ new class extends Component
                     </div>
                 </article>
             @empty
-                <p class="py-8 text-center font-bold text-brand-ink/60">{{ $search === '' ? 'No approved players yet.' : 'No players match your search.' }}</p>
+                <p class="py-8 text-center font-bold text-brand-ink/60">{{ ! $this->hasFilters() ? 'No approved players yet.' : 'No players match your filters.' }}</p>
             @endforelse
         </div>
     </section>
@@ -237,7 +327,7 @@ new class extends Component
                 </article>
             @empty
                 <div class="rounded-lg bg-white p-8 text-center font-bold text-brand-ink/60 lg:col-span-2">
-                    {{ $search === '' ? 'No approved event entries yet.' : 'No event entries match your search.' }}
+                    {{ ! $this->hasFilters() ? 'No approved event entries yet.' : 'No event entries match your filters.' }}
                 </div>
             @endforelse
         </div>

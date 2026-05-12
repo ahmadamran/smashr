@@ -13,6 +13,9 @@ use Modules\Ratings\Models\RatingEvent;
 use Modules\Ratings\Services\RatingRecalculationService;
 use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\Models\Tournament;
+use Modules\Tournaments\Models\TournamentCategory;
+use Modules\Tournaments\Models\TournamentEntrant;
+use Modules\Tournaments\Models\TournamentEntrantPlayer;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -242,6 +245,102 @@ class SuperadminControlTest extends TestCase
 
         $this->actingAs($admin)->delete(route('admin.users.destroy', $user))->assertRedirect(route('admin.users'));
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
+
+    public function test_superadmin_can_merge_duplicate_clubs_into_keeper(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $keeper = Club::create(['name' => 'Keeper Club', 'slug' => 'keeper-club']);
+        $duplicate = Club::create(['name' => 'Keeper Clb', 'slug' => 'keeper-clb']);
+        $member = $this->player('Duplicate Club Member');
+        $duplicate->members()->attach($member->id);
+        $tournament = Tournament::create(['club_id' => $duplicate->id, 'name' => 'Club Merge Open', 'slug' => 'club-merge-open', 'status' => 'published']);
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $member->id,
+            'club_id' => $duplicate->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [],
+            'winner_side' => 'A',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.clubs.merge', $keeper), ['source_ids' => (string) $duplicate->id])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('clubs', ['id' => $duplicate->id]);
+        $this->assertDatabaseHas('club_player', ['club_id' => $keeper->id, 'user_id' => $member->id]);
+        $this->assertSame($keeper->id, $tournament->fresh()->club_id);
+        $this->assertSame($keeper->id, $match->fresh()->club_id);
+    }
+
+    public function test_superadmin_can_merge_duplicate_users_into_keeper(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        $keeper = $this->player('Keeper Player');
+        $duplicate = $this->player('Keeper Plyer');
+        $club = Club::create(['name' => 'Merge User Club', 'slug' => 'merge-user-club']);
+        $club->members()->attach($duplicate->id);
+        $algorithm = $this->algorithm('merge-v1', 'active');
+        $tournament = Tournament::create([
+            'organizer_id' => $duplicate->id,
+            'name' => 'User Merge Open',
+            'slug' => 'user-merge-open',
+            'status' => 'published',
+        ]);
+        $category = TournamentCategory::create([
+            'tournament_id' => $tournament->id,
+            'name' => 'Boys Singles',
+            'slug' => 'boys-singles',
+            'format' => 'singles',
+        ]);
+        $entrant = TournamentEntrant::create([
+            'tournament_id' => $tournament->id,
+            'tournament_category_id' => $category->id,
+            'created_by' => $duplicate->id,
+            'status' => 'approved',
+        ]);
+        TournamentEntrantPlayer::create([
+            'tournament_entrant_id' => $entrant->id,
+            'user_id' => $duplicate->id,
+            'position' => 1,
+        ]);
+        $match = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $duplicate->id,
+            'tournament_id' => $tournament->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [],
+            'winner_side' => 'A',
+        ]);
+        $match->players()->create(['user_id' => $duplicate->id, 'side' => 'A', 'position' => 1]);
+        RatingEvent::create([
+            'match_id' => $match->id,
+            'rating_algorithm_id' => $algorithm->id,
+            'user_id' => $duplicate->id,
+            'format' => 'singles',
+            'rating_before' => 3.500,
+            'rating_after' => 3.680,
+            'delta' => 0.180,
+            'reason' => 'win',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.merge', $keeper), ['source_ids' => (string) $duplicate->id])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('users', ['id' => $duplicate->id]);
+        $this->assertDatabaseHas('club_player', ['club_id' => $club->id, 'user_id' => $keeper->id]);
+        $this->assertSame($keeper->id, $tournament->fresh()->organizer_id);
+        $this->assertSame($keeper->id, $entrant->fresh()->created_by);
+        $this->assertDatabaseHas('tournament_entrant_players', ['tournament_entrant_id' => $entrant->id, 'user_id' => $keeper->id]);
+        $this->assertSame($keeper->id, $match->fresh()->submitted_by);
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $keeper->id]);
+        $this->assertDatabaseHas('rating_events', ['match_id' => $match->id, 'user_id' => $keeper->id]);
     }
 
     public function test_admin_algorithm_create_activate_duplicate_and_delete_draft(): void

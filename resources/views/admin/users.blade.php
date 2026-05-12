@@ -25,7 +25,7 @@
         <x-admin.table>
             <thead class="bg-brand-blue text-white">
                 <tr>
-                    @foreach (['Name', 'Email', 'Club', 'Role', 'Status', 'SMASHR points', 'Rating', 'Matches played', 'Last active', 'Actions'] as $heading)
+                    @foreach (['ID', 'Name', 'Email', 'Club', 'Role', 'Status', 'SMASHR points', 'Rating', 'Matches played', 'Last active', 'Actions'] as $heading)
                         <th class="whitespace-nowrap px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>
                     @endforeach
                 </tr>
@@ -33,6 +33,7 @@
             <tbody class="divide-y divide-brand-ink/10">
                 @forelse ($users as $user)
                     <tr class="align-top">
+                        <td class="px-4 py-4 font-mono text-xs text-brand-ink/50">{{ $user->id }}</td>
                         <td class="px-4 py-4 font-black text-brand-blue">{{ $user->name }}</td>
                         <td class="px-4 py-4 text-brand-ink/70">{{ $user->email }}</td>
                         <td class="px-4 py-4">{{ $user->clubs->pluck('name')->join(', ') ?: 'Independent' }}</td>
@@ -63,12 +64,18 @@
                                 </form>
                                 <a href="{{ route('admin.matches.create', ['user' => $user->id]) }}" class="rounded px-3 py-2 hover:bg-brand-surface">Add match</a>
                                 <a href="{{ route('admin.users.edit', $user) }}" class="rounded px-3 py-2 hover:bg-brand-surface">Link / unlink club</a>
+                                <form method="POST" action="{{ route('admin.users.merge', $user) }}" class="border-y border-brand-ink/10 py-2" onsubmit="return confirm('Merge these duplicate users into {{ addslashes($user->name) }}? This moves clubs, matches, tournament entries, points history, and roles, then deletes the duplicate user records.');">
+                                    @csrf
+                                    <label class="mb-1 block px-3 text-[10px] font-black uppercase tracking-[0.18em] text-brand-green">Merge into this</label>
+                                    <input name="source_ids" placeholder="Duplicate IDs" class="mb-2 w-full rounded-md border-brand-ink/10 px-3 py-2 text-xs font-bold text-brand-ink" required>
+                                    <button class="w-full rounded bg-brand-blue px-3 py-2 text-left text-xs font-black uppercase text-white hover:bg-brand-blue-dark">Merge users</button>
+                                </form>
                                 <x-admin.confirm-dialog :action="route('admin.users.destroy', $user)" label="Delete" message="Delete this user?" />
                             </x-admin.action-dropdown>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="10" class="px-4 py-10 text-center font-bold text-brand-ink/50">No users found.</td></tr>
+                    <tr><td colspan="11" class="px-4 py-10 text-center font-bold text-brand-ink/50">No users found.</td></tr>
                 @endforelse
             </tbody>
         </x-admin.table>

@@ -14,8 +14,8 @@
     </x-slot>
 
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-7">
-            <input name="search" value="{{ request('search') }}" placeholder="Player name" class="rounded-md border-brand-ink/10 md:col-span-2">
+        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-[minmax(13rem,1.35fr)_minmax(7rem,.7fr)_minmax(8rem,.8fr)_repeat(3,minmax(7rem,.75fr))_minmax(7rem,.65fr)]">
+            <input name="search" value="{{ request('search') }}" placeholder="Player name" class="rounded-md border-brand-ink/10">
             <select name="format" class="rounded-md border-brand-ink/10">
                 <option value="singles" @selected($format === 'singles')>Singles</option>
                 <option value="doubles" @selected($format === 'doubles')>Doubles</option>

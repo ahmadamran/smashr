@@ -9,7 +9,7 @@
         @if ($drawCategory)
             <a href="{{ route('tournaments.draw', [$tournament, $drawCategory]) }}" class="rounded-full px-4 py-2 text-xs font-black uppercase {{ request()->routeIs('tournaments.draw') ? 'bg-brand-blue text-white' : 'bg-white text-brand-blue' }}">Draws</a>
         @endif
-        <a href="{{ route('tournaments.matches', $tournament) }}" class="rounded-full px-4 py-2 text-xs font-black uppercase {{ request()->routeIs('tournaments.matches') ? 'bg-brand-blue text-white' : 'bg-white text-brand-blue' }}">Schedule</a>
+        <a href="{{ route('tournaments.matches', $tournament) }}" class="rounded-full px-4 py-2 text-xs font-black uppercase {{ request()->routeIs('tournaments.matches') ? 'bg-brand-blue text-white' : 'bg-white text-brand-blue' }}">Matches</a>
         <a href="{{ route('tournaments.matches', $tournament).'#live' }}" class="rounded-full bg-white px-4 py-2 text-xs font-black uppercase text-brand-blue">Live Scores</a>
         <a href="{{ route('matches.index', ['tournament' => $tournament->slug, 'status' => 'confirmed']) }}" class="rounded-full bg-white px-4 py-2 text-xs font-black uppercase text-brand-blue">Results</a>
         @if ($tournament->registrationOpen())

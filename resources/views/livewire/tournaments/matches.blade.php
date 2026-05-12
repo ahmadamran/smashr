@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
@@ -16,10 +17,13 @@ new class extends Component
 
     public ?string $date = null;
 
-    public function mount(Tournament $tournament, ?string $date = null): void
+    public ?string $view = 'list';
+
+    public function mount(Tournament $tournament, ?string $date = null, ?string $view = null): void
     {
         $this->tournamentId = $tournament->id;
         $this->date = $date ?: null;
+        $this->view = in_array($view, ['list', 'grid'], true) ? $view : 'list';
     }
 
     public function tournament(): Tournament
@@ -27,13 +31,57 @@ new class extends Component
         return Tournament::with('club', 'organizer', 'categories')->findOrFail($this->tournamentId);
     }
 
-    public function matches(): Collection
+    public function matchDates(): Collection
     {
+        return MatchRecord::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->whereNotNull('played_at')
+            ->selectRaw('date(played_at) as match_date')
+            ->distinct()
+            ->orderBy('match_date')
+            ->pluck('match_date')
+            ->map(fn ($date) => (string) $date)
+            ->values();
+    }
+
+    public function selectedDate(): ?string
+    {
+        $dates = $this->matchDates();
+
+        if ($dates->isEmpty()) {
+            return null;
+        }
+
+        if ($this->date && $dates->contains($this->date)) {
+            return $this->date;
+        }
+
+        $today = now()->toDateString();
+
+        if ($dates->contains($today)) {
+            return $today;
+        }
+
+        if ($today > $dates->last()) {
+            return $dates->last();
+        }
+
+        return $dates->first();
+    }
+
+    public function matchesForSelectedDate(): Collection
+    {
+        $selectedDate = $this->selectedDate();
+
+        if (! $selectedDate) {
+            return collect();
+        }
+
         return MatchRecord::query()
             ->with('players.user.playerProfile', 'tournamentCategory')
             ->where('tournament_id', $this->tournamentId)
-            ->when($this->date, fn ($query, $date) => $query->whereDate('played_at', $date))
-            ->orderByRaw("case when live_status = 'live' then 0 else 1 end")
+            ->whereDate('played_at', $selectedDate)
+            ->where('live_status', '!=', 'live')
             ->orderBy('scheduled_at')
             ->orderBy('played_at')
             ->orderBy('tournament_category_id')
@@ -44,14 +92,43 @@ new class extends Component
 
     public function liveMatches(): Collection
     {
-        return $this->matches()->where('live_status', 'live')->values();
+        return MatchRecord::query()
+            ->with('players.user.playerProfile', 'tournamentCategory')
+            ->where('tournament_id', $this->tournamentId)
+            ->where('live_status', 'live')
+            ->orderBy('scheduled_at')
+            ->orderBy('played_at')
+            ->orderBy('tournament_category_id')
+            ->get()
+            ->filter(fn (MatchRecord $match) => $this->matchMatchesSearch($match))
+            ->values();
     }
 
-    public function dayMatches(): Collection
+    public function gridMatches(): Collection
     {
-        return $this->matches()
-            ->reject(fn (MatchRecord $match) => $match->live_status === 'live')
-            ->groupBy(fn (MatchRecord $match) => $match->played_at->toDateString());
+        return $this->matchesForSelectedDate()
+            ->groupBy(fn (MatchRecord $match) => $match->scheduled_at?->format('g:i A') ?? 'Time TBA');
+    }
+
+    public function sideName(MatchRecord $match, string $side): string
+    {
+        return $match->players
+            ->where('side', $side)
+            ->sortBy('position')
+            ->map(fn (MatchPlayer $player) => $player->user?->playerProfile?->display_name ?? $player->user?->name)
+            ->filter()
+            ->join(' / ') ?: 'TBA';
+    }
+
+    public function scoreSummary(MatchRecord $match): string
+    {
+        $games = collect($match->score ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game));
+
+        if ($games->isEmpty()) {
+            return 'Score pending';
+        }
+
+        return $games->map(fn ($game) => ((int) $game['a']).'-'.((int) $game['b']))->join(', ');
     }
 
     private function matchMatchesSearch(MatchRecord $match): bool
@@ -98,18 +175,44 @@ new class extends Component
 <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
     @php
         $tournament = $this->tournament();
+        $matchDates = $this->matchDates();
+        $selectedDate = $this->selectedDate();
         $liveMatches = $this->liveMatches();
-        $matches = $this->dayMatches();
+        $matches = $this->matchesForSelectedDate();
+        $gridMatches = $this->gridMatches();
         $hasLiveMatches = $liveMatches->isNotEmpty();
     @endphp
 
     @include('tournaments.partials.nav', ['tournament' => $tournament])
 
-    <form class="mb-6 flex flex-col gap-3 rounded-lg bg-white p-5 shadow-lg sm:flex-row">
-        <input name="date" type="date" value="{{ $date }}" class="rounded-md border-brand-ink/10">
-        <button class="rounded-md bg-brand-blue px-4 py-2 text-sm font-black uppercase text-white">Filter date</button>
-        <a href="{{ route('tournaments.matches', $tournament) }}" class="rounded-md border border-brand-ink/10 px-4 py-2 text-center text-sm font-black uppercase text-brand-blue">Clear date</a>
-    </form>
+    <section class="mb-6 rounded-lg bg-white p-5 shadow-lg">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Match dates</p>
+                <h2 class="mt-1 text-2xl font-black text-brand-blue">
+                    {{ $selectedDate ? Carbon::parse($selectedDate)->format('M j, Y') : 'No match dates yet' }}
+                </h2>
+            </div>
+
+            <div class="flex w-fit overflow-hidden rounded-md border border-brand-ink/10 bg-brand-surface p-1">
+                <a href="{{ route('tournaments.matches', ['tournament' => $tournament, 'date' => $selectedDate, 'view' => 'list']) }}" class="rounded px-4 py-2 text-xs font-black uppercase {{ $view === 'list' ? 'bg-brand-blue text-white' : 'text-brand-blue' }}">List</a>
+                <a href="{{ route('tournaments.matches', ['tournament' => $tournament, 'date' => $selectedDate, 'view' => 'grid']) }}" class="rounded px-4 py-2 text-xs font-black uppercase {{ $view === 'grid' ? 'bg-brand-blue text-white' : 'text-brand-blue' }}">Grid</a>
+            </div>
+        </div>
+
+        @if ($matchDates->isNotEmpty())
+            <div class="mt-5 overflow-x-auto">
+                <div class="flex min-w-max gap-2">
+                    @foreach ($matchDates as $matchDate)
+                        <a href="{{ route('tournaments.matches', ['tournament' => $tournament, 'date' => $matchDate, 'view' => $view]) }}" class="rounded-md border px-4 py-3 text-left {{ $selectedDate === $matchDate ? 'border-brand-blue bg-brand-blue text-white' : 'border-brand-ink/10 bg-white text-brand-blue hover:bg-brand-surface' }}">
+                            <span class="block text-[11px] font-black uppercase tracking-[.16em] {{ $selectedDate === $matchDate ? 'text-brand-mist' : 'text-brand-green' }}">{{ Carbon::parse($matchDate)->format('D') }}</span>
+                            <span class="mt-1 block text-sm font-black">{{ Carbon::parse($matchDate)->format('M j') }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    </section>
 
     @include('tournaments.partials.realtime-search', ['search' => $search, 'id' => 'tournament-match-search'])
 
@@ -132,23 +235,52 @@ new class extends Component
             </section>
         @endif
 
-        @forelse ($matches as $dateKey => $dayMatches)
-            <section class="rounded-lg bg-white p-6 shadow-lg">
-                <h2 class="text-2xl font-black text-brand-blue">{{ \Illuminate\Support\Carbon::parse($dateKey)->format('M j, Y') }}</h2>
-                <div class="mt-5 grid gap-4">
-                    @foreach ($dayMatches as $match)
-                        @include('tournaments.partials.match-card', ['match' => $match])
-                    @endforeach
-                </div>
-            </section>
-        @empty
+        @if ($matches->isNotEmpty())
+            @if ($view === 'grid')
+                <section class="rounded-lg bg-white p-6 shadow-lg">
+                    <h2 class="text-2xl font-black text-brand-blue">Grid view</h2>
+                    <div class="mt-5 grid gap-5">
+                        @foreach ($gridMatches as $time => $timeMatches)
+                            <div>
+                                <p class="text-xs font-black uppercase tracking-[.18em] text-brand-green">{{ $time }}</p>
+                                <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                    @foreach ($timeMatches as $match)
+                                        <article class="rounded-md border border-brand-ink/10 bg-brand-surface p-4">
+                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                <p class="text-[11px] font-black uppercase text-brand-green">{{ $match->tournamentCategory?->name ?? 'Tournament match' }}</p>
+                                                <span class="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase text-brand-blue">{{ $match->court_label ?: 'Court TBA' }}</span>
+                                            </div>
+                                            <p class="mt-3 text-sm font-black text-brand-blue">A: {{ $this->sideName($match, 'A') }}</p>
+                                            <p class="mt-1 text-sm font-black text-brand-blue">B: {{ $this->sideName($match, 'B') }}</p>
+                                            <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase text-brand-ink/55">
+                                                <span>{{ str_replace('_', ' ', $match->status) }}</span>
+                                                <span>{{ $this->scoreSummary($match) }}</span>
+                                            </div>
+                                        </article>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+            @else
+                <section class="rounded-lg bg-white p-6 shadow-lg">
+                    <h2 class="text-2xl font-black text-brand-blue">{{ Carbon::parse($selectedDate)->format('M j, Y') }}</h2>
+                    <div class="mt-5 grid gap-4">
+                        @foreach ($matches as $match)
+                            @include('tournaments.partials.match-card', ['match' => $match])
+                        @endforeach
+                    </div>
+                </section>
+            @endif
+        @else
             @if ($liveMatches->isEmpty())
                 <section class="rounded-lg bg-white p-6 shadow-lg">
                     <h2 class="text-xl font-black text-brand-blue">{{ $search === '' ? 'No matches scheduled' : 'No matches match your search' }}</h2>
                     <p class="mt-2 text-brand-ink/60">{{ $search === '' ? 'Generated draw matches will appear here.' : 'Try another player or school name.' }}</p>
                 </section>
             @endif
-        @endforelse
+        @endif
     </div>
 
     @if ($hasLiveMatches)

@@ -342,7 +342,7 @@ new class extends Component
                     <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Main draw</p>
                     <h2 class="text-2xl font-black text-brand-blue">{{ $drawSize }} draw | {{ $roundCount }} rounds</h2>
                 </div>
-                <a href="{{ route('tournaments.matches', $tournament, ['date' => request('date')]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Match schedule</a>
+                <a href="{{ route('tournaments.matches', $tournament, ['date' => request('date')]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Matches</a>
             </div>
 
             <div class="mt-5 overflow-x-auto pb-3">
