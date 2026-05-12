@@ -50,6 +50,9 @@ class TournamentSoftwareImportTest extends TestCase
         $this->assertSame(1, $tournament->categories()->where('slug', 'l12')->firstOrFail()->matches()->count());
         $this->assertSame(1, User::where('email', 'like', '%@import.smashr.test')->where('name', 'Ali Bin Ahmad')->count());
         $this->assertSame(5, User::where('email', 'like', '%@import.smashr.test')->count());
+        $this->assertSame('male', User::where('name', 'Ali Bin Ahmad')->firstOrFail()->playerProfile->gender);
+        $this->assertSame('female', User::where('name', 'Nur Aisyah Binti Musa')->firstOrFail()->playerProfile->gender);
+
         app(TournamentSoftwareImportService::class)->import($this->playersHtml());
 
         $this->assertSame(1, Tournament::where('slug', 'mss-melaka-badminton-2026')->count());

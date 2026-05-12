@@ -37,12 +37,26 @@ Volt::route('s/{token}', 'scoresheets.show')->name('scoresheets.show');
 
 Route::get('rankings', function () {
     $format = request('format', 'singles') === 'doubles' ? 'doubles' : 'singles';
+    $gender = in_array(request('gender'), ['male', 'female'], true) ? request('gender') : null;
     $ratingColumn = $format.'_rating';
     $matchesColumn = $format.'_matches';
 
     $players = PlayerProfile::query()
         ->with('user.clubs')
         ->where($matchesColumn, '>', 0)
+        ->when($gender, fn ($query, $gender) => $query->where('gender', $gender))
+        ->when(request('search'), function ($query, $search) {
+            $search = trim((string) $search);
+
+            if ($search === '') {
+                return;
+            }
+
+            $query->where(function ($query) use ($search) {
+                $query->where('display_name', 'like', "%{$search}%")
+                    ->orWhereHas('user', fn ($users) => $users->where('name', 'like', "%{$search}%"));
+            });
+        })
         ->when(request('country'), fn ($query, $country) => $query->where('country', $country))
         ->when(request('state'), fn ($query, $state) => $query->where('state', $state))
         ->when(request('city'), fn ($query, $city) => $query->where('city', $city))
@@ -55,6 +69,7 @@ Route::get('rankings', function () {
 
     return view('rankings', [
         'format' => $format,
+        'gender' => $gender,
         'players' => $players,
         'clubs' => Club::orderBy('name')->get(),
     ]);

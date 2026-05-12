@@ -47,6 +47,8 @@ class SuperadminControlTest extends TestCase
 
         $this->assertTrue($admin->hasRole('superadmin'));
         $this->assertTrue(RatingAlgorithm::where('version', 'v1')->where('status', 'active')->exists());
+        $this->assertSame(['mss-melaka-badminton-2026'], Tournament::pluck('slug')->all());
+        $this->assertFalse(PlayerProfile::where('user_id', $admin->id)->exists());
     }
 
     public function test_match_context_can_attach_club_and_tournament(): void

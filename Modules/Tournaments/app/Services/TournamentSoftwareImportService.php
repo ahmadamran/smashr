@@ -208,18 +208,9 @@ class TournamentSoftwareImportService
             ],
         );
 
-        PlayerProfile::firstOrCreate(
-            ['user_id' => $user->id],
-            [
-                'display_name' => $user->name,
-                'slug' => 'smashr-superadmin',
-                'country' => 'Malaysia',
-                'state' => 'Kuala Lumpur',
-                'city' => 'Kuala Lumpur',
-                'preferred_hand' => 'right',
-                'primary_format' => 'doubles',
-            ],
-        );
+        PlayerProfile::where('user_id', $user->id)
+            ->where('slug', 'smashr-superadmin')
+            ->delete();
 
         return $user;
     }
@@ -273,12 +264,27 @@ class TournamentSoftwareImportService
                 'country' => 'Malaysia',
                 'state' => 'Melaka',
                 'city' => 'Melaka',
+                'gender' => $this->genderFromEvents($player['events'] ?? []),
                 'preferred_hand' => 'right',
                 'primary_format' => 'singles',
             ],
         );
 
         return $user;
+    }
+
+    private function genderFromEvents(array $events): ?string
+    {
+        $prefixes = collect($events)
+            ->map(fn (string $event) => Str::upper(Str::substr($event, 0, 1)))
+            ->unique()
+            ->values();
+
+        return match (true) {
+            $prefixes->count() === 1 && $prefixes->first() === 'L' => 'male',
+            $prefixes->count() === 1 && $prefixes->first() === 'P' => 'female',
+            default => null,
+        };
     }
 
     private function syncSchoolClub(User $user, array $player): void

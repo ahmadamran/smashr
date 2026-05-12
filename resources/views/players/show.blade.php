@@ -6,6 +6,9 @@
         ->latest()
         ->limit(10)
         ->get();
+
+    $singlesIsRated = $player->singles_matches > 0;
+    $doublesIsRated = $player->doubles_matches > 0;
 @endphp
 
 <x-app-layout>
@@ -29,12 +32,12 @@
         <section class="grid gap-6 md:grid-cols-2 lg:col-span-2">
             <div class="rounded-lg bg-white p-8 shadow-lg">
                 <p class="text-xs font-black uppercase text-brand-green">Singles rating</p>
-                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $player->singles_rating }}</p>
+                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $singlesIsRated ? $player->singles_rating : 'Unrated' }}</p>
                 <p class="mt-2 text-brand-ink/60">{{ $player->singles_matches }} confirmed matches</p>
             </div>
             <div class="rounded-lg bg-white p-8 shadow-lg">
                 <p class="text-xs font-black uppercase text-brand-green">Doubles rating</p>
-                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $player->doubles_rating }}</p>
+                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $doublesIsRated ? $player->doubles_rating : 'Unrated' }}</p>
                 <p class="mt-2 text-brand-ink/60">{{ $player->doubles_matches }} confirmed matches</p>
             </div>
         </section>

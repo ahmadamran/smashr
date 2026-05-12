@@ -53,7 +53,9 @@ new class extends Component
                     'school' => $player->school_name,
                     'profile' => $player->user?->playerProfile,
                     'singles_rating' => $player->user?->playerProfile?->singles_rating,
+                    'singles_matches' => $player->user?->playerProfile?->singles_matches ?? 0,
                     'doubles_rating' => $player->user?->playerProfile?->doubles_rating,
+                    'doubles_matches' => $player->user?->playerProfile?->doubles_matches ?? 0,
                     'category' => $entrant->category?->name ?? 'Unassigned event',
                     'seed' => $entrant->seed,
                 ]);
@@ -67,7 +69,9 @@ new class extends Component
                     'school' => $first['school'],
                     'profile' => $first['profile'],
                     'singles_rating' => $first['singles_rating'],
+                    'singles_matches' => $first['singles_matches'],
                     'doubles_rating' => $first['doubles_rating'],
+                    'doubles_matches' => $first['doubles_matches'],
                     'categories' => $rows->pluck('category')->unique()->sort()->values(),
                     'seeds' => $rows->pluck('seed')->filter()->unique()->sort()->values(),
                 ];
@@ -184,7 +188,11 @@ new class extends Component
                             <p>Seed {{ $row['seeds']->join(', ') }}</p>
                         @endif
                         @if ($row['singles_rating'])
-                            <p>Singles {{ $row['singles_rating'] }} | Doubles {{ $row['doubles_rating'] }}</p>
+                            <p>
+                                Singles {{ $row['singles_matches'] > 0 ? $row['singles_rating'] : 'Unrated' }}
+                                |
+                                Doubles {{ $row['doubles_matches'] > 0 ? $row['doubles_rating'] : 'Unrated' }}
+                            </p>
                         @endif
                     </div>
                 </article>

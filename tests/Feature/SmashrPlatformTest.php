@@ -119,6 +119,55 @@ class SmashrPlatformTest extends TestCase
             ->assertDontSee('Unrated Player');
     }
 
+    public function test_rankings_can_filter_by_gender(): void
+    {
+        $male = $this->player('Men Ranking Player');
+        $female = $this->player('Women Ranking Player');
+
+        $male->playerProfile->forceFill([
+            'gender' => 'male',
+            'singles_rating' => 3.900,
+            'singles_matches' => 1,
+        ])->save();
+        $female->playerProfile->forceFill([
+            'gender' => 'female',
+            'singles_rating' => 3.950,
+            'singles_matches' => 1,
+        ])->save();
+
+        $this->get('/rankings?format=singles&gender=male')
+            ->assertOk()
+            ->assertSee('Men&#039;s singles leaderboard', false)
+            ->assertSee('Men Ranking Player')
+            ->assertDontSee('Women Ranking Player');
+
+        $this->get('/rankings?format=singles&gender=female')
+            ->assertOk()
+            ->assertSee('Women&#039;s singles leaderboard', false)
+            ->assertSee('Women Ranking Player')
+            ->assertDontSee('Men Ranking Player');
+    }
+
+    public function test_rankings_can_search_by_player_name(): void
+    {
+        $alpha = $this->player('Searchable Alpha Player');
+        $beta = $this->player('Different Beta Player');
+
+        $alpha->playerProfile->forceFill([
+            'singles_rating' => 3.900,
+            'singles_matches' => 1,
+        ])->save();
+        $beta->playerProfile->forceFill([
+            'singles_rating' => 3.950,
+            'singles_matches' => 1,
+        ])->save();
+
+        $this->get('/rankings?format=singles&search=Alpha')
+            ->assertOk()
+            ->assertSee('Searchable Alpha Player')
+            ->assertDontSee('Different Beta Player');
+    }
+
     public function test_public_and_auth_pages_render(): void
     {
         $user = $this->player('Smoke Player');
@@ -129,7 +178,11 @@ class SmashrPlatformTest extends TestCase
             ->assertOk()
             ->assertSee('SMASHR - Badminton ratings, draws and live scores - Home')
             ->assertSee('Know your level');
-        $this->get(route('players.show', $user->playerProfile))->assertOk()->assertSee('Smoke Player');
+        $this->get(route('players.show', $user->playerProfile))
+            ->assertOk()
+            ->assertSee('Smoke Player')
+            ->assertSee('Unrated')
+            ->assertSee('0 confirmed matches');
         $this->get(route('clubs.show', $club))->assertOk()->assertSee('Smoke Club');
         $this->actingAs($user)
             ->get('/dashboard')
