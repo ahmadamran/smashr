@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Database\Seeders\MssjJohorTournamentSoftwareSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Clubs\Models\Club;
 use Modules\Tournaments\Models\Tournament;
@@ -93,6 +94,40 @@ class TournamentSoftwareImportTest extends TestCase
         $this->assertSame(1, Club::where('name', 'SJKC CHUNG HWA')->count());
         $this->assertTrue($user->clubs()->whereKey($schoolClub->id)->exists());
         $this->assertTrue($user->clubs()->whereKey($extraClub->id)->exists());
+    }
+
+    public function test_johor_snapshot_import_creates_tournament_players_and_categories(): void
+    {
+        $this->seed(MssjJohorTournamentSoftwareSeeder::class);
+
+        $tournament = Tournament::where('slug', 'kejohanan-badminton-mssj-2026')->firstOrFail();
+
+        $this->assertSame('KEJOHANAN BADMINTON MAJLIS SUKAN SEKOLAH JOHOR (MSSJ) 2026', $tournament->name);
+        $this->assertSame('Johor', $tournament->state);
+        $this->assertSame('Kota Tinggi', $tournament->city);
+        $this->assertSame([
+            'pl12' => 'Boys Under 12',
+            'pl15' => 'Boys Under 15',
+            'pl18' => 'Boys Under 18',
+            'pp12' => 'Girls Under 12',
+            'pp15' => 'Girls Under 15',
+            'pp18' => 'Girls Under 18',
+        ], $tournament->categories()->orderBy('slug')->pluck('name', 'slug')->all());
+        $this->assertSame(202, User::where('email', 'like', 'ts-4c353-%@import.smashr.test')->count());
+        $this->assertSame('male', User::where('email', 'ts-4c353-1@import.smashr.test')->firstOrFail()->playerProfile->gender);
+        $this->assertSame('female', User::where('email', 'ts-4c353-106@import.smashr.test')->firstOrFail()->playerProfile->gender);
+        $this->assertGreaterThan(0, $tournament->matches()->count());
+        $this->assertSame([
+            '2026-05-05',
+            '2026-05-06',
+            '2026-05-07',
+        ], $tournament->matches()->selectRaw('DATE(played_at) as date')->distinct()->orderBy('date')->pluck('date')->all());
+        $this->assertTrue($tournament->matches()
+            ->whereDate('played_at', '2026-05-07')
+            ->where('court_label', 'Court 1')
+            ->where('draw_round', 6)
+            ->where('winner_side', 'A')
+            ->exists());
     }
 
     public function test_import_fails_when_players_are_not_exposed(): void

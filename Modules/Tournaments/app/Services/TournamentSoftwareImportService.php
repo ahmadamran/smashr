@@ -290,6 +290,8 @@ class TournamentSoftwareImportService
             ->values();
 
         return match (true) {
+            collect($events)->every(fn (string $event) => Str::startsWith(Str::upper($event), 'PL')) => 'male',
+            collect($events)->every(fn (string $event) => Str::startsWith(Str::upper($event), 'PP')) => 'female',
             $prefixes->count() === 1 && $prefixes->first() === 'L' => 'male',
             $prefixes->count() === 1 && $prefixes->first() === 'P' => 'female',
             default => null,
@@ -365,7 +367,7 @@ class TournamentSoftwareImportService
                 'status' => $shouldApplyRating ? 'pending_confirmation' : $status,
                 'played_at' => $scheduledAt?->toDateString() ?? $tournament->starts_at?->toDateString() ?? now()->toDateString(),
                 'scheduled_at' => $scheduledAt,
-                'court_label' => null,
+                'court_label' => $sourceMatch['court_label'] ?? null,
                 'estimated_duration_minutes' => 20,
                 'score' => $score,
                 'winner_side' => $sourceMatch['winner_side'] ?: 'A',
