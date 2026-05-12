@@ -22,7 +22,7 @@ new class extends Component
         <div class="flex h-16 items-center justify-between">
             <!-- Logo -->
             <a href="{{ url('/') }}" wire:navigate class="flex items-center">
-                <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 object-contain" style="width: 128px; height: 32px;">
+                <x-application-logo />
             </a>
 
             <!-- Navigation Links -->
@@ -101,7 +101,7 @@ new class extends Component
     <div x-show="open" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-white sm:hidden" style="display: none;">
         <div class="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-blue-950/10 bg-white px-6">
             <a href="{{ url('/') }}" wire:navigate @click="open = false">
-                <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="136" height="34" class="h-[34px] w-[136px] object-contain" style="width: 136px; height: 34px;">
+                <x-application-logo />
             </a>
             <button @click="open = false" class="text-blue-950/45">
                 <svg class="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">

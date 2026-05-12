@@ -28,6 +28,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>@include('partials.page-title', ['title' => 'Home'])</title>
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800&display=swap" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -36,7 +38,7 @@
         <header class="border-b border-white/10 bg-white text-[#071a80]">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
                 <a href="/" class="flex items-center">
-                    <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="128" height="32" class="h-8 w-32 object-contain" style="width: 128px; height: 32px;">
+                    <x-application-logo />
                 </a>
                 <nav class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
                     <a href="{{ route('rankings') }}" class="hover:text-[#d6a31d]">Rankings</a>
@@ -63,7 +65,7 @@
             <div class="fixed inset-0 z-50 hidden bg-white text-[#1d3448] peer-checked:block md:hidden">
                 <div class="flex h-20 items-center justify-between border-b border-blue-950/10 px-6">
                     <a href="/">
-                        <img src="{{ asset('images/smashr-wordmark.png') }}" alt="SmashR" width="136" height="34" class="h-[34px] w-[136px] object-contain" style="width: 136px; height: 34px;">
+                        <x-application-logo />
                     </a>
                     <label for="public-mobile-menu" class="text-blue-950/45">
                         <span class="sr-only">Close menu</span>

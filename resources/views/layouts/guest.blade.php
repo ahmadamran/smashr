@@ -8,6 +8,8 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>@include('partials.page-title', ['title' => $title])</title>
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+        <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
