@@ -96,6 +96,9 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        $this->call(DemoCompetitionSeeder::class);
+        $this->call([
+            DemoCompetitionSeeder::class,
+            MssMelakaTournamentSoftwareSeeder::class,
+        ]);
     }
 }

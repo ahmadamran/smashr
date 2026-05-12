@@ -17,6 +17,7 @@ class TournamentSoftwareImportService
     public const TOURNAMENT_ID = 'E4153E6E-E8D5-42AF-9EDC-4B362F00CB2F';
     public const SOURCE_URL = 'https://www.tournamentsoftware.com/tournament/'.self::TOURNAMENT_ID;
     public const PLAYERS_URL = self::SOURCE_URL.'/players';
+    public const SNAPSHOT_PATH = 'seeders/data/mss_melaka_badminton_2026_entries.json';
 
     public const EVENTS = [
         'L12' => ['name' => 'Boys Under 12', 'format' => 'singles', 'level_label' => 'Under 12 Boys'],
@@ -29,7 +30,9 @@ class TournamentSoftwareImportService
 
     public function import(?string $playersHtml = null): Tournament
     {
-        $players = $this->parsePlayers($playersHtml ?? $this->fetchPlayersHtml());
+        $players = $playersHtml === null
+            ? $this->loadSnapshotPlayers()
+            : $this->parsePlayers($playersHtml);
 
         if ($players->isEmpty()) {
             throw new RuntimeException('TournamentSoftware players page did not expose player rows. Provide/export player data before running this importer.');
@@ -45,7 +48,7 @@ class TournamentSoftwareImportService
                         continue;
                     }
 
-                    $user = $this->upsertPlayer($player['name']);
+                    $user = $this->upsertPlayer($player);
                     $category = $categories[$eventCode];
                     $entrant = $tournament->entrants()->updateOrCreate([
                         'tournament_category_id' => $category->id,
@@ -89,6 +92,48 @@ class TournamentSoftwareImportService
             ->map(fn (string $row) => $this->parsePlayerRow($row))
             ->filter()
             ->unique(fn (array $player) => Str::lower($player['name']).'|'.implode(',', $player['events']))
+            ->values();
+    }
+
+    private function loadSnapshotPlayers(): Collection
+    {
+        $path = database_path(self::SNAPSHOT_PATH);
+
+        if (is_file($path)) {
+            $payload = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+
+            return $this->normalizePlayers($payload['players'] ?? []);
+        }
+
+        return $this->parsePlayers($this->fetchPlayersHtml());
+    }
+
+    private function normalizePlayers(array $players): Collection
+    {
+        return collect($players)
+            ->map(function (array $player) {
+                $events = collect($player['events'] ?? [])
+                    ->map(fn (string $event) => Str::upper($event))
+                    ->filter(fn (string $event) => array_key_exists($event, self::EVENTS))
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $name = trim((string) ($player['name'] ?? ''));
+
+                if ($name === '' || empty($events)) {
+                    return null;
+                }
+
+                return [
+                    'source_player_id' => isset($player['source_player_id']) ? (string) $player['source_player_id'] : null,
+                    'name' => $name,
+                    'school' => isset($player['school']) ? trim((string) $player['school']) : null,
+                    'events' => $events,
+                ];
+            })
+            ->filter()
+            ->unique(fn (array $player) => ($player['source_player_id'] ?: Str::lower($player['name'])).'|'.implode(',', $player['events']))
             ->values();
     }
 
@@ -150,10 +195,14 @@ class TournamentSoftwareImportService
         })->all();
     }
 
-    private function upsertPlayer(string $name): User
+    private function upsertPlayer(array $player): User
     {
+        $name = $player['name'];
+        $sourcePlayerId = $player['source_player_id'] ?? null;
         $slug = Str::slug($name) ?: 'player';
-        $email = $slug.'-mss-melaka-2026@import.smashr.test';
+        $email = $sourcePlayerId
+            ? 'ts-e4153-'.$sourcePlayerId.'@import.smashr.test'
+            : $slug.'-mss-melaka-2026@import.smashr.test';
 
         $user = User::updateOrCreate(
             ['email' => $email],
