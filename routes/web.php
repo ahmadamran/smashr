@@ -131,7 +131,8 @@ Route::get('tournaments', fn () => view('tournaments.index', [
     'tournaments' => Tournament::with('club')
         ->withCount(['matches', 'categories', 'entrants'])
         ->orderByRaw("case status when 'published' then 0 when 'draft' then 1 else 2 end")
-        ->orderBy('starts_at')
+        ->orderByDesc('starts_at')
+        ->latest()
         ->paginate(12),
 ]))->name('tournaments.index');
 
