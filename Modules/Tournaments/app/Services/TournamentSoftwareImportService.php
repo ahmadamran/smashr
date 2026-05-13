@@ -3,6 +3,7 @@
 namespace Modules\Tournaments\Services;
 
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -262,7 +263,16 @@ class TournamentSoftwareImportService
         }
 
         if (! $user->exists || $user->isDirty()) {
-            $user->save();
+            try {
+                $user->save();
+            } catch (UniqueConstraintViolationException) {
+                $user = User::where('email', $email)->firstOrFail();
+                $user->forceFill([
+                    'name' => $name,
+                    'suspended_at' => null,
+                    'email_verified_at' => $user->email_verified_at ?? now(),
+                ])->save();
+            }
         }
 
         PlayerProfile::updateOrCreate(
