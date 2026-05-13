@@ -383,16 +383,16 @@ new class extends Component
                                             </div>
 
                                             <div class="mt-3 divide-y divide-brand-ink/10 overflow-hidden rounded-md border border-brand-ink/10 bg-white">
-                                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-brand-mist' : '' }}">
-                                                    <p class="text-sm font-black text-brand-blue">{{ $drawMatch['side_a'] }}</p>
+                                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-brand-blue' : '' }}">
+                                                    <p class="text-sm font-black {{ $drawMatch['winner_side'] === 'A' ? 'text-white' : 'text-brand-blue' }}">{{ $drawMatch['side_a'] }}</p>
                                                     @if ($drawMatch['winner_side'] === 'A')
-                                                        <span class="text-xs font-black uppercase text-green-700">Won</span>
+                                                        <span class="text-xs font-black uppercase text-white">Won</span>
                                                     @endif
                                                 </div>
-                                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-brand-mist' : '' }}">
-                                                    <p class="text-sm font-black text-brand-blue">{{ $drawMatch['side_b'] }}</p>
+                                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-brand-blue' : '' }}">
+                                                    <p class="text-sm font-black {{ $drawMatch['winner_side'] === 'B' ? 'text-white' : 'text-brand-blue' }}">{{ $drawMatch['side_b'] }}</p>
                                                     @if ($drawMatch['winner_side'] === 'B')
-                                                        <span class="text-xs font-black uppercase text-green-700">Won</span>
+                                                        <span class="text-xs font-black uppercase text-white">Won</span>
                                                     @endif
                                                 </div>
                                             </div>
