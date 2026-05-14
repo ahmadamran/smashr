@@ -2,13 +2,29 @@
 
 namespace App\Services\Admin;
 
+use Illuminate\Validation\ValidationException;
 use Modules\Matches\Models\MatchRecord;
+use Modules\Matches\Services\MixedDoublesTeamValidator;
 use Modules\Ratings\Services\RatingService;
 
 class MatchAdminService
 {
     public function create(array $data, int $adminId): MatchRecord
     {
+        $sideA = collect([$data['side_a_user_id'], $data['side_a_2_user_id'] ?? null])->filter()->map(fn ($id) => (int) $id)->values();
+        $sideB = collect([$data['side_b_user_id'], $data['side_b_2_user_id'] ?? null])->filter()->map(fn ($id) => (int) $id)->values();
+        $teamFormat = in_array($data['format'], ['doubles', 'mixed'], true);
+
+        if ($teamFormat && ($sideA->count() !== 2 || $sideB->count() !== 2)) {
+            throw ValidationException::withMessages(['match' => 'Doubles and mixed matches need two players on each side.']);
+        }
+
+        if ($sideA->merge($sideB)->unique()->count() !== $sideA->count() + $sideB->count()) {
+            throw ValidationException::withMessages(['match' => 'Each player can only appear once in a match.']);
+        }
+
+        app(MixedDoublesTeamValidator::class)->validateUserIds($data['format'], $sideA->all(), $sideB->all());
+
         $match = MatchRecord::create([
             'format' => $data['format'],
             'submitted_by' => $adminId,
@@ -24,14 +40,29 @@ class MatchAdminService
             'winner_side' => $data['winner_side'] ?? 'A',
         ]);
 
-        $match->players()->create(['user_id' => $data['side_a_user_id'], 'side' => 'A', 'position' => 1]);
-        $match->players()->create(['user_id' => $data['side_b_user_id'], 'side' => 'B', 'position' => 1]);
+        foreach ($sideA as $position => $userId) {
+            $match->players()->create(['user_id' => $userId, 'side' => 'A', 'position' => $position + 1]);
+        }
+
+        foreach ($sideB as $position => $userId) {
+            $match->players()->create(['user_id' => $userId, 'side' => 'B', 'position' => $position + 1]);
+        }
 
         return $match;
     }
 
     public function update(MatchRecord $match, array $data, RatingService $ratings): MatchRecord
     {
+        if (($data['format'] ?? $match->format) === 'mixed') {
+            $match->loadMissing('players');
+            $players = $match->players->groupBy('side');
+            app(MixedDoublesTeamValidator::class)->validateUserIds(
+                'mixed',
+                $players->get('A', collect())->pluck('user_id')->all(),
+                $players->get('B', collect())->pluck('user_id')->all(),
+            );
+        }
+
         $match->update($data);
 
         if ($data['status'] === 'confirmed') {

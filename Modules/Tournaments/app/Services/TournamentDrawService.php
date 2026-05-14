@@ -4,9 +4,12 @@ namespace Modules\Tournaments\Services;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
+use Modules\Matches\Services\MixedDoublesTeamValidator;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
@@ -145,9 +148,10 @@ class TournamentDrawService
     private function createMatch(TournamentCategory $category, TournamentEntrant $sideA, TournamentEntrant $sideB, int $round, ?string $group, int $position, array $schedule, int $sequence): int
     {
         $scheduledAt = $this->scheduledAt($schedule, $sequence);
+        $this->validateMixedEntrants($category, $sideA, $sideB);
 
         $match = MatchRecord::create([
-            'format' => $category->format === 'singles' ? 'singles' : 'doubles',
+            'format' => $category->format,
             'submitted_by' => $category->tournament->organizer_id ?? $sideA->created_by ?? $sideB->created_by,
             'club_id' => $category->tournament->club_id,
             'tournament_id' => $category->tournament_id,
@@ -213,9 +217,35 @@ class TournamentDrawService
 
             $match->players()->create([
                 'user_id' => $player->user_id,
+                'club_id' => $this->clubIdForEntrantPlayer($player),
                 'side' => $side,
                 'position' => $index + 1,
             ]);
         }
+    }
+
+    private function validateMixedEntrants(TournamentCategory $category, TournamentEntrant $sideA, TournamentEntrant $sideB): void
+    {
+        if ($category->format !== 'mixed') {
+            return;
+        }
+
+        $sideA->loadMissing('players.user.playerProfile');
+        $sideB->loadMissing('players.user.playerProfile');
+
+        app(MixedDoublesTeamValidator::class)->validateUserIds(
+            'mixed',
+            $sideA->players->pluck('user_id')->filter()->all(),
+            $sideB->players->pluck('user_id')->filter()->all(),
+        );
+    }
+
+    private function clubIdForEntrantPlayer($player): ?int
+    {
+        if (blank($player->school_name)) {
+            return null;
+        }
+
+        return Club::whereRaw('lower(name) = ?', [Str::lower($player->school_name)])->value('id');
     }
 }

@@ -2,9 +2,12 @@
 
 namespace Modules\Tournaments\DrawEngine\Services;
 
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
+use Modules\Matches\Services\MixedDoublesTeamValidator;
 use Modules\Tournaments\Models\TournamentCategory;
 
 class DrawMatchPersistenceService
@@ -32,8 +35,10 @@ class DrawMatchPersistenceService
                 continue;
             }
 
+            $this->validateMixedEntrants($event, $match['side_a'], $match['side_b']);
+
             $record = MatchRecord::create([
-                'format' => $event->format === 'singles' ? 'singles' : 'doubles',
+                'format' => $event->format,
                 'submitted_by' => $event->tournament->organizer_id ?? $match['side_a']->created_by,
                 'club_id' => $event->tournament->club_id,
                 'tournament_id' => $event->tournament_id,
@@ -70,9 +75,35 @@ class DrawMatchPersistenceService
 
             $match->players()->create([
                 'user_id' => $player->user_id,
+                'club_id' => $this->clubIdForEntrantPlayer($player),
                 'side' => $side,
                 'position' => $index + 1,
             ]);
         }
+    }
+
+    private function validateMixedEntrants(TournamentCategory $event, $sideA, $sideB): void
+    {
+        if ($event->format !== 'mixed') {
+            return;
+        }
+
+        $sideA->loadMissing('players.user.playerProfile');
+        $sideB->loadMissing('players.user.playerProfile');
+
+        app(MixedDoublesTeamValidator::class)->validateUserIds(
+            'mixed',
+            $sideA->players->pluck('user_id')->filter()->all(),
+            $sideB->players->pluck('user_id')->filter()->all(),
+        );
+    }
+
+    private function clubIdForEntrantPlayer($player): ?int
+    {
+        if (blank($player->school_name)) {
+            return null;
+        }
+
+        return Club::whereRaw('lower(name) = ?', [Str::lower($player->school_name)])->value('id');
     }
 }

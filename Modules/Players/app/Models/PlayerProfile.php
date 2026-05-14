@@ -24,8 +24,10 @@ use Modules\Clubs\Models\Club;
     'smashr_points',
     'singles_rating',
     'doubles_rating',
+    'mixed_rating',
     'singles_matches',
     'doubles_matches',
+    'mixed_matches',
 ])]
 class PlayerProfile extends Model
 {
@@ -40,6 +42,7 @@ class PlayerProfile extends Model
             'birthdate' => 'date',
             'singles_rating' => 'decimal:3',
             'doubles_rating' => 'decimal:3',
+            'mixed_rating' => 'decimal:3',
         ];
     }
 

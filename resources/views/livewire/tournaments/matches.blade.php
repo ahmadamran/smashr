@@ -245,13 +245,26 @@ new class extends Component
                                 <p class="text-xs font-black uppercase tracking-[.18em] text-brand-green">{{ $time }}</p>
                                 <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                     @foreach ($timeMatches as $match)
+                                        @php
+                                            $games = collect($match->score ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game));
+                                            $showWinnerFlag = $match->status === 'confirmed' && $games->isNotEmpty() && filled($match->winner_side);
+                                        @endphp
                                         <article class="rounded-md border border-brand-ink/10 bg-brand-surface p-4">
                                             <div class="flex flex-wrap items-center justify-between gap-2">
                                                 <p class="text-[11px] font-black uppercase text-brand-green">{{ $match->tournamentCategory?->name ?? 'Tournament match' }}</p>
                                                 <span class="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase text-brand-blue">{{ $match->court_label ?: 'Court TBA' }}</span>
                                             </div>
-                                            <p class="mt-3 text-sm font-black text-brand-blue">A: {{ $this->sideName($match, 'A') }}</p>
-                                            <p class="mt-1 text-sm font-black text-brand-blue">B: {{ $this->sideName($match, 'B') }}</p>
+                                            <div class="mt-3 grid gap-2">
+                                                @foreach (['A', 'B'] as $side)
+                                                    @php($isWinner = $showWinnerFlag && $match->winner_side === $side)
+                                                    <div class="flex items-center justify-between gap-2 rounded-md border px-3 py-2 {{ $isWinner ? 'border-brand-green/30 bg-brand-mist' : 'border-brand-ink/10 bg-white' }}">
+                                                        <p class="text-sm font-black {{ $isWinner ? 'text-brand-green' : 'text-brand-blue' }}">{{ $side }}: {{ $this->sideName($match, $side) }}</p>
+                                                        @if ($isWinner)
+                                                            <span class="shrink-0 rounded-full bg-brand-green px-2 py-1 text-[10px] font-black uppercase text-white">Winner</span>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            </div>
                                             <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase text-brand-ink/55">
                                                 <span>{{ str_replace('_', ' ', $match->status) }}</span>
                                                 <span>{{ $this->scoreSummary($match) }}</span>

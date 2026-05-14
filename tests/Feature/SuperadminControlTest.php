@@ -191,7 +191,6 @@ class SuperadminControlTest extends TestCase
             route('admin.clubs.show', $club),
             route('admin.clubs.edit', $club),
             route('admin.tournaments'),
-            route('admin.tournaments.create'),
             route('admin.tournaments.show', $tournament),
             route('admin.tournaments.edit', $tournament),
             route('admin.matches'),
@@ -204,6 +203,8 @@ class SuperadminControlTest extends TestCase
         ] as $url) {
             $this->actingAs($admin)->get($url)->assertOk();
         }
+
+        $this->actingAs($admin)->get(route('admin.tournaments.create'))->assertRedirect(route('organizer.tournaments.create'));
     }
 
     public function test_admin_user_crud_and_smashr_points_adjustment(): void
@@ -420,6 +421,40 @@ class SuperadminControlTest extends TestCase
         $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $sideB->id, 'side' => 'B']);
     }
 
+    public function test_admin_can_create_mixed_match(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('superadmin', 'web'));
+        [$a1, $a2, $b1, $b2] = [
+            $this->player('Admin Mixed A One', 'male'),
+            $this->player('Admin Mixed A Two', 'female'),
+            $this->player('Admin Mixed B One', 'male'),
+            $this->player('Admin Mixed B Two', 'female'),
+        ];
+
+        $this->actingAs($admin)
+            ->post(route('admin.matches.store'), [
+                'format' => 'mixed',
+                'side_a_user_id' => $a1->id,
+                'side_a_2_user_id' => $a2->id,
+                'side_b_user_id' => $b1->id,
+                'side_b_2_user_id' => $b2->id,
+                'played_at' => now()->toDateString(),
+                'court_label' => 'Mixed Court',
+                'estimated_duration_minutes' => 30,
+                'winner_side' => 'A',
+                'status' => 'pending_confirmation',
+            ])
+            ->assertRedirect();
+
+        $match = MatchRecord::where('court_label', 'Mixed Court')->firstOrFail();
+
+        $this->assertSame('mixed', $match->format);
+        $this->assertSame(4, $match->players()->count());
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $a2->id, 'side' => 'A']);
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $b2->id, 'side' => 'B']);
+    }
+
     public function test_admin_can_bulk_confirm_and_void_matches(): void
     {
         $admin = User::factory()->create();
@@ -528,7 +563,7 @@ class SuperadminControlTest extends TestCase
         return $match;
     }
 
-    private function player(string $name): User
+    private function player(string $name, ?string $gender = null): User
     {
         $user = User::factory()->create([
             'name' => $name,
@@ -544,6 +579,7 @@ class SuperadminControlTest extends TestCase
             'city' => 'Kuala Lumpur',
             'preferred_hand' => 'right',
             'primary_format' => 'doubles',
+            'gender' => $gender,
         ]);
 
         return $user->load('playerProfile');

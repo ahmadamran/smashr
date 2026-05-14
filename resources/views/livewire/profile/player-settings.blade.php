@@ -37,7 +37,7 @@ new #[Layout('layouts.app')] class extends Component
             'state' => ['nullable', 'string', 'max:80'],
             'city' => ['nullable', 'string', 'max:80'],
             'preferred_hand' => ['required', 'in:right,left'],
-            'primary_format' => ['required', 'in:singles,doubles'],
+            'primary_format' => ['required', 'in:singles,doubles,mixed'],
             'club_name' => ['nullable', 'string', 'max:120'],
         ]);
 
@@ -121,6 +121,7 @@ new #[Layout('layouts.app')] class extends Component
                     <select wire:model="primary_format" id="primary_format" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="doubles">Doubles</option>
                         <option value="singles">Singles</option>
+                        <option value="mixed">Mixed</option>
                     </select>
                 </div>
             </div>

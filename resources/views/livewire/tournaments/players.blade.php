@@ -65,6 +65,8 @@ new class extends Component
                         'singles_matches' => $player->user?->playerProfile?->singles_matches ?? 0,
                         'doubles_rating' => $player->user?->playerProfile?->doubles_rating,
                         'doubles_matches' => $player->user?->playerProfile?->doubles_matches ?? 0,
+                        'mixed_rating' => $player->user?->playerProfile?->mixed_rating,
+                        'mixed_matches' => $player->user?->playerProfile?->mixed_matches ?? 0,
                         'gender' => $player->user?->playerProfile?->gender,
                         'category' => $entrant->category?->name ?? 'Unassigned event',
                         'seed' => $entrant->seed,
@@ -82,6 +84,8 @@ new class extends Component
                     'singles_matches' => $first['singles_matches'],
                     'doubles_rating' => $first['doubles_rating'],
                     'doubles_matches' => $first['doubles_matches'],
+                    'mixed_rating' => $first['mixed_rating'],
+                    'mixed_matches' => $first['mixed_matches'],
                     'gender' => $first['gender'],
                     'categories' => $rows->pluck('category')->unique()->sort()->values(),
                     'seeds' => $rows->pluck('seed')->filter()->unique()->sort()->values(),
@@ -96,6 +100,14 @@ new class extends Component
         return $this->filteredEntrants()
             ->groupBy(fn (TournamentEntrant $entrant) => $entrant->category?->id ?? 0)
             ->sortBy(fn (Collection $entrants) => $entrants->first()?->category?->name ?? 'Unassigned event');
+    }
+
+    public function seededByCategory(): Collection
+    {
+        return $this->filteredEntrants()
+            ->filter(fn (TournamentEntrant $entrant) => filled($entrant->seed))
+            ->sortBy(fn (TournamentEntrant $entrant) => Str::lower($entrant->category?->name ?? 'Unassigned event').'|'.str_pad((string) $entrant->seed, 4, '0', STR_PAD_LEFT).'|'.Str::lower($entrant->displayName()))
+            ->groupBy(fn (TournamentEntrant $entrant) => $entrant->category?->id ?? 0);
     }
 
     public function categoryOptions(): Collection
@@ -117,6 +129,12 @@ new class extends Component
         $this->search = '';
         $this->gender = '';
         $this->category = '';
+    }
+
+    public function setCategory(string $category): void
+    {
+        $validCategoryIds = $this->categoryOptions()->pluck('id')->all();
+        $this->category = $category === '' || in_array($category, $validCategoryIds, true) ? $category : '';
     }
 
     private function entrantMatchesCategory(TournamentEntrant $entrant): bool
@@ -185,6 +203,10 @@ new class extends Component
         $approvedEntrants = $this->approvedEntrants();
         $directoryRows = $this->directoryRows();
         $entrantsByCategory = $this->entrantsByCategory();
+        $seededByCategory = $this->seededByCategory();
+        $hasSeeded = $seededByCategory->flatten(1)->isNotEmpty();
+        $activeTab = request('tab') === 'seeded' ? 'seeded' : 'all';
+        $activeTab = $activeTab === 'seeded' && ! $hasSeeded ? 'all' : $activeTab;
         $approvedPlayerCount = $approvedEntrants
             ->flatMap(fn ($entrant) => $entrant->players)
             ->unique(fn ($player) => $player->user_id ? 'user:'.$player->user_id : 'guest:'.Str::lower($player->displayName()).'|'.Str::lower((string) $player->school_name))
@@ -194,7 +216,7 @@ new class extends Component
     @include('tournaments.partials.nav', ['tournament' => $tournament])
 
     <section class="mb-6 rounded-lg bg-white p-5 shadow-lg">
-        <div class="grid gap-3 md:grid-cols-[minmax(13rem,1.4fr)_minmax(8rem,.7fr)_minmax(12rem,1fr)_auto] md:items-end">
+        <div class="grid gap-3 md:grid-cols-[minmax(13rem,1.4fr)_minmax(8rem,.7fr)_auto] md:items-end">
             <input
                 id="tournament-player-search"
                 type="search"
@@ -209,13 +231,6 @@ new class extends Component
                 <option value="female">Women</option>
             </select>
 
-            <select wire:model.live="category" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink">
-                <option value="">All categories</option>
-                @foreach ($categoryOptions as $option)
-                    <option value="{{ $option['id'] }}">{{ $option['name'] }}</option>
-                @endforeach
-            </select>
-
             @if ($this->hasFilters())
                 <button type="button" wire:click="clearFilters" class="rounded-md border border-brand-ink/10 px-4 py-2 text-sm font-black uppercase text-brand-blue">
                     Clear
@@ -223,6 +238,19 @@ new class extends Component
             @else
                 <span class="hidden md:block"></span>
             @endif
+        </div>
+
+        <div class="mt-5 overflow-x-auto">
+            <div class="flex min-w-max gap-2">
+                <button type="button" wire:click="setCategory('')" class="rounded-md px-4 py-2 text-xs font-black uppercase {{ $category === '' ? 'bg-brand-blue text-white' : 'bg-brand-surface text-brand-blue' }}">
+                    All
+                </button>
+                @foreach ($categoryOptions as $option)
+                    <button type="button" wire:click="setCategory('{{ $option['id'] }}')" class="rounded-md px-4 py-2 text-xs font-black uppercase {{ $category === $option['id'] ? 'bg-brand-blue text-white' : 'bg-brand-surface text-brand-blue' }}">
+                        {{ $option['name'] }}
+                    </button>
+                @endforeach
+            </div>
         </div>
     </section>
 
@@ -241,7 +269,40 @@ new class extends Component
         </div>
     </section>
 
-    <section class="rounded-lg bg-white p-6 shadow-lg">
+    @if ($activeTab === 'seeded')
+        <section class="rounded-lg bg-white p-6 shadow-lg">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Seeded entrants</p>
+                <h2 class="mt-1 text-2xl font-black text-brand-blue">Tournament seeds</h2>
+            </div>
+            <div class="mt-5 grid gap-5 lg:grid-cols-2">
+                @foreach ($seededByCategory as $entrants)
+                    @php($category = $entrants->first()?->category)
+                    <article class="rounded-lg border border-brand-ink/10 p-5">
+                        <h3 class="text-xl font-black text-brand-blue">{{ $category?->name ?? 'Unassigned event' }}</h3>
+                        <div class="mt-4 divide-y divide-brand-ink/10">
+                            @foreach ($entrants as $entrant)
+                                <div class="flex items-center justify-between gap-4 py-3">
+                                    <div>
+                                        <p class="font-black text-brand-blue">{{ $entrant->displayName() }}</p>
+                                        <div class="mt-1 space-y-1">
+                                            @foreach ($entrant->players->sortBy('position') as $player)
+                                                @if ($player->school_name)
+                                                    <p class="text-sm font-bold text-brand-ink/55">{{ $player->displayName() }} | {{ $player->school_name }}</p>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    <span class="shrink-0 rounded-full bg-brand-surface px-3 py-1 text-xs font-black uppercase text-brand-blue">Seed {{ $entrant->seed }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @else
+        <section class="rounded-lg bg-white p-6 shadow-lg">
         <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">All players</p>
@@ -282,6 +343,8 @@ new class extends Component
                                 Singles {{ $row['singles_matches'] > 0 ? $row['singles_rating'] : 'Unrated' }}
                                 |
                                 Doubles {{ $row['doubles_matches'] > 0 ? $row['doubles_rating'] : 'Unrated' }}
+                                |
+                                Mixed {{ $row['mixed_matches'] > 0 ? $row['mixed_rating'] : 'Unrated' }}
                             </p>
                         @endif
                     </div>
@@ -290,9 +353,9 @@ new class extends Component
                 <p class="py-8 text-center font-bold text-brand-ink/60">{{ ! $this->hasFilters() ? 'No approved players yet.' : 'No players match your filters.' }}</p>
             @endforelse
         </div>
-    </section>
+        </section>
 
-    <section class="mt-8 rounded-lg bg-brand-surface p-6 shadow-lg">
+        <section class="mt-8 rounded-lg bg-brand-surface p-6 shadow-lg">
         <div>
             <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Players by event</p>
             <h2 class="mt-1 text-2xl font-black text-brand-blue">Event entries</h2>
@@ -331,5 +394,6 @@ new class extends Component
                 </div>
             @endforelse
         </div>
-    </section>
+        </section>
+    @endif
 </div>

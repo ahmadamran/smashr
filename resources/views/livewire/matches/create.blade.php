@@ -5,6 +5,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
+use Modules\Matches\Services\MixedDoublesTeamValidator;
 use Modules\Tournaments\Models\Tournament;
 
 new #[Layout('layouts.app')] class extends Component
@@ -36,8 +37,9 @@ new #[Layout('layouts.app')] class extends Component
 
     public function submit(): void
     {
+        $teamFormat = in_array($this->format, ['doubles', 'mixed'], true);
         $validated = $this->validate([
-            'format' => ['required', 'in:singles,doubles'],
+            'format' => ['required', 'in:singles,doubles,mixed'],
             'played_at' => ['required', 'date', 'before_or_equal:today'],
             'winner_side' => ['required', 'in:A,B'],
             'club_id' => ['nullable', 'exists:clubs,id'],
@@ -47,8 +49,8 @@ new #[Layout('layouts.app')] class extends Component
             'score.*.b' => ['required', 'integer', 'min:0', 'max:40'],
             'side_a_1' => ['required', 'email', 'exists:users,email'],
             'side_b_1' => ['required', 'email', 'different:side_a_1', 'exists:users,email'],
-            'side_a_2' => [$this->format === 'doubles' ? 'required' : 'nullable', 'email', 'different:side_a_1', 'different:side_b_1', 'exists:users,email'],
-            'side_b_2' => [$this->format === 'doubles' ? 'required' : 'nullable', 'email', 'different:side_a_1', 'different:side_b_1', 'different:side_a_2', 'exists:users,email'],
+            'side_a_2' => [$teamFormat ? 'required' : 'nullable', 'email', 'different:side_a_1', 'different:side_b_1', 'exists:users,email'],
+            'side_b_2' => [$teamFormat ? 'required' : 'nullable', 'email', 'different:side_a_1', 'different:side_b_1', 'different:side_a_2', 'exists:users,email'],
         ]);
 
         $users = collect([
@@ -63,6 +65,16 @@ new #[Layout('layouts.app')] class extends Component
             return;
         }
 
+        $usersByEmail = User::with('playerProfile')
+            ->whereIn('email', $users->pluck('email')->all())
+            ->get()
+            ->keyBy('email');
+        app(MixedDoublesTeamValidator::class)->validateUserIds(
+            $validated['format'],
+            $users->where('side', 'A')->map(fn ($player) => $usersByEmail->get($player['email'])->id)->all(),
+            $users->where('side', 'B')->map(fn ($player) => $usersByEmail->get($player['email'])->id)->all(),
+        );
+
         $match = MatchRecord::create([
             'format' => $validated['format'],
             'submitted_by' => auth()->id(),
@@ -75,7 +87,7 @@ new #[Layout('layouts.app')] class extends Component
         ]);
 
         foreach ($users as $player) {
-            $user = User::where('email', $player['email'])->firstOrFail();
+            $user = $usersByEmail->get($player['email']);
             $match->players()->create([
                 'user_id' => $user->id,
                 'side' => $player['side'],
@@ -101,6 +113,7 @@ new #[Layout('layouts.app')] class extends Component
                     <select wire:model.live="format" id="format" class="mt-1 block w-full rounded-md border-gray-300">
                         <option value="singles">Singles</option>
                         <option value="doubles">Doubles</option>
+                        <option value="mixed">Mixed</option>
                     </select>
                 </div>
                 <div><x-input-label for="played_at" value="Played at" /><x-text-input wire:model="played_at" id="played_at" type="date" class="mt-1 block w-full" /></div>
@@ -138,12 +151,12 @@ new #[Layout('layouts.app')] class extends Component
                 <section class="rounded-md border border-brand-ink/10 p-5">
                     <h2 class="font-black text-brand-blue">Side A</h2>
                     <x-text-input wire:model="side_a_1" class="mt-4 block w-full" placeholder="Player email" />
-                    @if ($format === 'doubles') <x-text-input wire:model="side_a_2" class="mt-3 block w-full" placeholder="Partner email" /> @endif
+                    @if (in_array($format, ['doubles', 'mixed'], true)) <x-text-input wire:model="side_a_2" class="mt-3 block w-full" placeholder="Partner email" /> @endif
                 </section>
                 <section class="rounded-md border border-brand-ink/10 p-5">
                     <h2 class="font-black text-brand-blue">Side B</h2>
                     <x-text-input wire:model="side_b_1" class="mt-4 block w-full" placeholder="Opponent email" />
-                    @if ($format === 'doubles') <x-text-input wire:model="side_b_2" class="mt-3 block w-full" placeholder="Opponent partner email" /> @endif
+                    @if (in_array($format, ['doubles', 'mixed'], true)) <x-text-input wire:model="side_b_2" class="mt-3 block w-full" placeholder="Opponent partner email" /> @endif
                 </section>
             </div>
             <x-input-error :messages="$errors->all()" class="mt-2" />

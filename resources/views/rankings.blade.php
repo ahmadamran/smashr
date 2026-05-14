@@ -6,24 +6,44 @@
                 'female' => "Women's",
                 default => 'Overall',
             };
+            $ageLabel = match ($ageGroup) {
+                'u12' => 'Under 12',
+                'u15' => 'Under 15',
+                'u18' => 'Under 18',
+                'adult' => 'Open',
+                default => null,
+            };
+            $formatLabel = match ($format) {
+                'mixed' => 'Mixed',
+                'doubles' => 'Doubles',
+                default => 'Singles',
+            };
         @endphp
         <div>
             <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Smashr rankings</p>
-            <h1 class="text-3xl font-black text-brand-blue">{{ $genderLabel }} {{ $format }} leaderboard</h1>
+            <h1 class="text-3xl font-black text-brand-blue">{{ $ageLabel ? $ageLabel.' ' : '' }}{{ $genderLabel }} {{ strtolower($formatLabel) }} leaderboard</h1>
         </div>
     </x-slot>
 
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-[minmax(13rem,1.35fr)_minmax(7rem,.7fr)_minmax(8rem,.8fr)_repeat(3,minmax(7rem,.75fr))_minmax(7rem,.65fr)]">
+        <form class="mb-6 grid gap-3 rounded-lg bg-white p-5 shadow-lg md:grid-cols-[minmax(13rem,1.35fr)_repeat(3,minmax(8rem,.8fr))_repeat(3,minmax(7rem,.75fr))_minmax(7rem,.65fr)]">
             <input name="search" value="{{ request('search') }}" placeholder="Player name" class="rounded-md border-brand-ink/10">
             <select name="format" class="rounded-md border-brand-ink/10">
                 <option value="singles" @selected($format === 'singles')>Singles</option>
                 <option value="doubles" @selected($format === 'doubles')>Doubles</option>
+                <option value="mixed" @selected($format === 'mixed')>Mixed</option>
             </select>
             <select name="gender" class="rounded-md border-brand-ink/10">
                 <option value="">All genders</option>
                 <option value="male" @selected($gender === 'male')>Men</option>
                 <option value="female" @selected($gender === 'female')>Women</option>
+            </select>
+            <select name="age_group" class="rounded-md border-brand-ink/10">
+                <option value="">All ages</option>
+                <option value="u12" @selected($ageGroup === 'u12')>Under 12</option>
+                <option value="u15" @selected($ageGroup === 'u15')>Under 15</option>
+                <option value="u18" @selected($ageGroup === 'u18')>Under 18</option>
+                <option value="adult" @selected($ageGroup === 'adult')>Open / Adult</option>
             </select>
             <input name="country" value="{{ request('country') }}" placeholder="Country" class="rounded-md border-brand-ink/10">
             <input name="state" value="{{ request('state') }}" placeholder="State" class="rounded-md border-brand-ink/10">
@@ -53,12 +73,12 @@
                             </td>
                             <td class="px-5 py-4 text-brand-ink/70">{{ $player->gender ? ucfirst(str_replace('_', ' ', $player->gender)) : 'Not set' }}</td>
                             <td class="px-5 py-4 text-brand-ink/70">{{ collect([$player->city, $player->state, $player->country])->filter()->join(', ') ?: 'Not set' }}</td>
-                            <td class="px-5 py-4">{{ $format === 'singles' ? $player->singles_matches : $player->doubles_matches }}</td>
-                            <td class="px-5 py-4 text-right text-xl font-black">{{ $format === 'singles' ? $player->singles_rating : $player->doubles_rating }}</td>
+                            <td class="px-5 py-4">{{ $player->{$matchesColumn} }}</td>
+                            <td class="px-5 py-4 text-right text-xl font-black">{{ $player->{$ratingColumn} }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-5 py-10 text-center text-brand-ink/60">No confirmed {{ $genderLabel === 'Overall' ? '' : strtolower($genderLabel).' ' }}{{ $format }} matches yet.</td>
+                            <td colspan="6" class="px-5 py-10 text-center text-brand-ink/60">No confirmed {{ $genderLabel === 'Overall' ? '' : strtolower($genderLabel).' ' }}{{ strtolower($formatLabel) }} matches yet.</td>
                         </tr>
                     @endforelse
                 </tbody>

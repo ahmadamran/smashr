@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Matches\Models\MatchPlayer;
 use Modules\Matches\Models\MatchRecord;
+use Modules\Matches\Services\MixedDoublesTeamValidator;
 use Modules\Ratings\Models\RatingAlgorithm;
 use Modules\Ratings\Models\RatingEvent;
 
@@ -61,10 +62,15 @@ class RatingService
             return;
         }
 
+        app(MixedDoublesTeamValidator::class)->validateMatch($match);
+
         $algorithm ??= RatingAlgorithm::active();
         $settings = array_replace(RatingAlgorithm::DEFAULT_SETTINGS, $algorithm->settings ?? []);
-        $ratingColumn = $match->format === 'singles' ? 'singles_rating' : 'doubles_rating';
-        $countColumn = $match->format === 'singles' ? 'singles_matches' : 'doubles_matches';
+        [$ratingColumn, $countColumn] = match ($match->format) {
+            'mixed' => ['mixed_rating', 'mixed_matches'],
+            'doubles' => ['doubles_rating', 'doubles_matches'],
+            default => ['singles_rating', 'singles_matches'],
+        };
         $players = $match->players->groupBy('side');
         $sideA = $players->get('A', collect());
         $sideB = $players->get('B', collect());

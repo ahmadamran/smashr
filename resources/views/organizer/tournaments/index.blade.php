@@ -1,7 +1,11 @@
 <x-app-layout>
-    <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">Organizer tournaments</h1></x-slot>
+    <x-slot name="header">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 class="text-3xl font-black text-brand-blue">Organizer tournaments</h1>
+            <a href="{{ route('organizer.tournaments.create') }}" class="w-fit rounded-full bg-brand-blue px-5 py-3 text-xs font-black uppercase text-white shadow-sm transition hover:bg-brand-blue-dark">Create tournament</a>
+        </div>
+    </x-slot>
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        @include('organizer.tournaments.partials.nav')
         <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             @forelse ($tournaments as $tournament)
                 <a href="{{ route('organizer.tournaments.edit', $tournament) }}" class="rounded-lg bg-white p-6 shadow-lg transition hover:shadow-xl">

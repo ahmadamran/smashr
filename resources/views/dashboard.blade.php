@@ -34,7 +34,7 @@
             </div>
         @endunless
 
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 lg:grid-cols-4">
             <section class="rounded-lg bg-white p-6 shadow-lg">
                 <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Singles</p>
                 <p class="mt-3 text-5xl font-black text-brand-blue">{{ $profile?->singles_rating ?? '3.500' }}</p>
@@ -44,6 +44,11 @@
                 <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Doubles</p>
                 <p class="mt-3 text-5xl font-black text-brand-blue">{{ $profile?->doubles_rating ?? '3.500' }}</p>
                 <p class="mt-2 text-sm text-brand-ink/60">{{ $profile?->doubles_matches ?? 0 }} confirmed matches</p>
+            </section>
+            <section class="rounded-lg bg-white p-6 shadow-lg">
+                <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Mixed</p>
+                <p class="mt-3 text-5xl font-black text-brand-blue">{{ $profile?->mixed_rating ?? '3.500' }}</p>
+                <p class="mt-2 text-sm text-brand-ink/60">{{ $profile?->mixed_matches ?? 0 }} confirmed matches</p>
             </section>
             <section class="rounded-lg bg-brand-blue p-6 text-white shadow-lg">
                 <p class="text-xs font-black uppercase tracking-[.25em] text-brand-mist">Profile</p>

@@ -9,6 +9,7 @@
                     <select name="format" class="mt-1 w-full rounded-md border-brand-ink/10">
                         <option value="singles">Singles</option>
                         <option value="doubles">Doubles</option>
+                        <option value="mixed">Mixed</option>
                     </select>
                 </label>
                 <label class="font-bold text-brand-blue">Tournament
@@ -27,8 +28,24 @@
                         @endforeach
                     </select>
                 </label>
+                <label class="font-bold text-brand-blue">Side A partner
+                    <select name="side_a_2_user_id" class="mt-1 w-full rounded-md border-brand-ink/10">
+                        <option value="">Singles only</option>
+                        @foreach ($users as $user)
+                            <option value="{{ $user->id }}">{{ $user->playerProfile?->display_name ?? $user->name }} | {{ $user->email }}</option>
+                        @endforeach
+                    </select>
+                </label>
                 <label class="font-bold text-brand-blue">Side B player
                     <select name="side_b_user_id" class="mt-1 w-full rounded-md border-brand-ink/10">
+                        @foreach ($users as $user)
+                            <option value="{{ $user->id }}">{{ $user->playerProfile?->display_name ?? $user->name }} | {{ $user->email }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="font-bold text-brand-blue">Side B partner
+                    <select name="side_b_2_user_id" class="mt-1 w-full rounded-md border-brand-ink/10">
+                        <option value="">Singles only</option>
                         @foreach ($users as $user)
                             <option value="{{ $user->id }}">{{ $user->playerProfile?->display_name ?? $user->name }} | {{ $user->email }}</option>
                         @endforeach

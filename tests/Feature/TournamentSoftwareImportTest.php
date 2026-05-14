@@ -117,6 +117,10 @@ class TournamentSoftwareImportTest extends TestCase
         $this->assertSame('male', User::where('email', 'ts-4c353-1@import.smashr.test')->firstOrFail()->playerProfile->gender);
         $this->assertSame('female', User::where('email', 'ts-4c353-106@import.smashr.test')->firstOrFail()->playerProfile->gender);
         $this->assertGreaterThan(0, $tournament->matches()->count());
+        $this->assertDatabaseHas('match_players', [
+            'user_id' => User::where('email', 'ts-4c353-1@import.smashr.test')->firstOrFail()->id,
+            'club_id' => Club::where('name', 'BATU PAHAT')->firstOrFail()->id,
+        ]);
         $this->assertSame([
             '2026-05-05',
             '2026-05-06',

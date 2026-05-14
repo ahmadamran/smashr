@@ -6,6 +6,7 @@
     $liveGames = collect($liveScore['games'] ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))->values();
     $current = $liveScore['current'] ?? ['a' => 0, 'b' => 0];
     $displayGames = $officialGames->isNotEmpty() ? $officialGames : $liveGames;
+    $showWinnerFlag = $match->status === 'confirmed' && $officialGames->isNotEmpty() && filled($match->winner_side);
 @endphp
 
 <article class="rounded-md border border-brand-ink/10 p-4">
@@ -32,8 +33,17 @@
             @endif
         </div>
     @endif
-    <p class="mt-3 font-bold text-brand-blue">A: {{ $sideA }}</p>
-    <p class="mt-1 font-bold text-brand-blue">B: {{ $sideB }}</p>
+    <div class="mt-4 grid gap-2">
+        @foreach (['A' => $sideA, 'B' => $sideB] as $side => $sideName)
+            @php($isWinner = $showWinnerFlag && $match->winner_side === $side)
+            <div class="flex items-center justify-between gap-3 rounded-md border px-3 py-3 {{ $isWinner ? 'border-brand-green/30 bg-brand-mist' : 'border-brand-ink/10 bg-white' }}">
+                <p class="font-black {{ $isWinner ? 'text-brand-green' : 'text-brand-blue/80' }}">{{ $side }}: {{ $sideName }}</p>
+                @if ($isWinner)
+                    <span class="shrink-0 rounded-full bg-brand-green px-3 py-1 text-[11px] font-black uppercase text-white">Winner</span>
+                @endif
+            </div>
+        @endforeach
+    </div>
 
     @if ($match->live_status === 'live')
         <div class="mt-4 rounded-md bg-brand-blue p-4 text-white">

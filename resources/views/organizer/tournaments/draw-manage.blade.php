@@ -1,11 +1,11 @@
 @php
-    $selectedEventId = old('event_id', $selectedEvent->id ?? $tournament->categories->first()?->id);
-    $selectedDrawType = old('draw_type', $preview['draw_type'] ?? 'single_elimination');
+    $selectedEventId = old('event_id', $selectedEvent->id);
+    $selectedDrawType = old('draw_type', $preview['draw_type'] ?? $selectedEvent->draw_mode ?? 'single_elimination');
     $defaultDate = $tournament->starts_at?->toDateString() ?? now()->toDateString();
 @endphp
 
 <x-app-layout>
-    <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">Draw Engine | {{ $tournament->name }}</h1></x-slot>
+    <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">Manage draw | {{ $selectedEvent->name }}</h1></x-slot>
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         @include('organizer.tournaments.partials.nav', ['tournament' => $tournament])
         @if (session('status')) <div class="mb-6 rounded bg-green-50 p-4 font-bold text-green-800">{{ session('status') }}</div> @endif
@@ -13,12 +13,25 @@
             <div class="mb-6 rounded bg-red-50 p-4 font-bold text-red-800">{{ $errors->first() }}</div>
         @endif
 
-        <form method="POST" action="{{ route('organizer.tournaments.draw-engine.preview', $tournament) }}" class="grid gap-6">
+        <section class="rounded-lg bg-white p-6 shadow-lg">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Tournament control</p>
+                    <h2 class="mt-1 text-2xl font-black text-brand-blue">Generate draw and schedule</h2>
+                    <p class="mt-2 text-sm font-bold text-brand-ink/60">{{ $selectedEvent->name }} has {{ $selectedEvent->approvedEntrants->count() }} approved entrants and {{ $selectedEvent->matches->count() }} generated matches.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('organizer.tournaments.draws', $tournament) }}" class="rounded-full border border-brand-ink/10 px-4 py-2 text-xs font-black uppercase text-brand-blue">All draws</a>
+                    <a href="{{ route('tournaments.draw', [$tournament, $selectedEvent]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Public draw</a>
+                </div>
+            </div>
+        </section>
+
+        <form method="POST" action="{{ route('organizer.tournaments.draws.preview', [$tournament, $selectedEvent]) }}" class="mt-6 grid gap-6">
             @csrf
             <section class="rounded-lg bg-white p-6 shadow-lg">
-                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Step 1</p>
-                <h2 class="mt-1 text-2xl font-black text-brand-blue">Select tournament event</h2>
-                <select name="event_id" class="mt-4 w-full rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink">
+                <h3 class="text-lg font-black text-brand-blue">Event</h3>
+                <select name="event_id" class="mt-3 w-full rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink">
                     @foreach ($tournament->categories as $event)
                         <option value="{{ $event->id }}" @selected((int) $selectedEventId === $event->id)>{{ $event->name }} | {{ $event->approvedEntrants->count() }} approved participants</option>
                     @endforeach
@@ -26,11 +39,10 @@
             </section>
 
             <section class="rounded-lg bg-white p-6 shadow-lg">
-                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Step 2</p>
-                <h2 class="mt-1 text-2xl font-black text-brand-blue">Select draw type</h2>
+                <h3 class="text-lg font-black text-brand-blue">Draw type</h3>
                 <div class="mt-4 grid gap-3 md:grid-cols-4">
                     @foreach ($drawTypes as $drawType)
-                        <label class="rounded-md border border-brand-ink/10 p-4 text-sm font-bold text-brand-ink/70">
+                        <label class="rounded-md border border-brand-ink/10 bg-brand-surface p-4 text-sm font-bold text-brand-ink/70">
                             <input type="radio" name="draw_type" value="{{ $drawType->value }}" @checked($selectedDrawType === $drawType->value) class="mr-2 text-brand-blue">
                             {{ $drawType->label() }}
                         </label>
@@ -39,11 +51,10 @@
             </section>
 
             <section class="rounded-lg bg-white p-6 shadow-lg">
-                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Step 3</p>
-                <h2 class="mt-1 text-2xl font-black text-brand-blue">Configure draw settings</h2>
+                <h3 class="text-lg font-black text-brand-blue">Draw settings</h3>
                 <div class="mt-4 grid gap-4 md:grid-cols-4">
                     <label class="text-sm font-black text-brand-blue">Group / pool size
-                        <input name="group_size" type="number" min="3" max="8" value="{{ old('group_size', 4) }}" class="mt-1 w-full rounded-md border-brand-ink/10 text-sm font-bold">
+                        <input name="group_size" type="number" min="3" max="8" value="{{ old('group_size', $selectedEvent->group_size ?? 4) }}" class="mt-1 w-full rounded-md border-brand-ink/10 text-sm font-bold">
                     </label>
                     <label class="text-sm font-black text-brand-blue">Qualifiers per pool
                         <input name="qualifiers_per_pool" type="number" min="1" max="4" value="{{ old('qualifiers_per_pool', 2) }}" class="mt-1 w-full rounded-md border-brand-ink/10 text-sm font-bold">
@@ -58,8 +69,7 @@
             </section>
 
             <section class="rounded-lg bg-white p-6 shadow-lg">
-                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Step 4</p>
-                <h2 class="mt-1 text-2xl font-black text-brand-blue">Configure scheduling limits by day</h2>
+                <h3 class="text-lg font-black text-brand-blue">Scheduling limits by day</h3>
                 <div class="mt-4 grid gap-4 md:grid-cols-6">
                     <label class="text-sm font-black text-brand-blue">Courts
                         <input name="courts_count" type="number" min="1" max="50" value="{{ old('courts_count', 2) }}" class="mt-1 w-full rounded-md border-brand-ink/10 text-sm font-bold">
@@ -83,7 +93,7 @@
 
                 <div class="mt-5 grid gap-4 md:grid-cols-3">
                     @foreach ([1 => 'Pool matches only', 2 => 'Knockout round 1 / QF', 3 => 'Semifinal / Final'] as $index => $label)
-                        <div class="rounded-md border border-brand-ink/10 p-4">
+                        <div class="rounded-md border border-brand-ink/10 bg-brand-surface p-4">
                             <p class="font-black text-brand-blue">Day {{ $index }}: {{ $label }}</p>
                             <input type="date" name="days[{{ $index - 1 }}][date]" value="{{ old("days.".($index - 1).".date", now()->parse($defaultDate)->addDays($index - 1)->toDateString()) }}" class="mt-3 w-full rounded-md border-brand-ink/10 text-sm font-bold">
                             <div class="mt-3 grid grid-cols-2 gap-2">
@@ -108,7 +118,7 @@
 
         @if ($preview)
             <section class="mt-8 rounded-lg bg-white p-6 shadow-lg">
-                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Step 5</p>
+                <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Tournament control</p>
                 <h2 class="mt-1 text-2xl font-black text-brand-blue">Preview generated draw</h2>
                 @if (! empty($preview['warnings']))
                     <div class="mt-4 rounded-md bg-amber-50 p-4 text-sm font-bold text-amber-900">
@@ -126,7 +136,7 @@
                     @endforeach
                 </div>
 
-                <form method="POST" action="{{ route('organizer.tournaments.draw-engine.generate', $tournament) }}" class="mt-6 rounded-md bg-brand-surface p-4">
+                <form method="POST" action="{{ route('organizer.tournaments.draws.generate-engine', [$tournament, $selectedEvent]) }}" class="mt-6 rounded-md bg-brand-surface p-4">
                     @csrf
                     @foreach (['event_id', 'draw_type', 'group_size', 'qualifiers_per_pool', 'courts_count', 'court_label_prefix', 'schedule_start_time', 'schedule_end_time', 'match_duration_minutes', 'rest_minutes', 'max_matches_per_player_per_day'] as $field)
                         <input type="hidden" name="{{ $field }}" value="{{ request($field) }}">

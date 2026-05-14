@@ -30,8 +30,10 @@ class RatingRecalculationService
             PlayerProfile::query()->update([
                 'singles_rating' => $settings['starting_rating'],
                 'doubles_rating' => $settings['starting_rating'],
+                'mixed_rating' => $settings['starting_rating'],
                 'singles_matches' => 0,
                 'doubles_matches' => 0,
+                'mixed_matches' => 0,
             ]);
             RatingEvent::query()->delete();
 

@@ -9,6 +9,7 @@
 
     $singlesIsRated = $player->singles_matches > 0;
     $doublesIsRated = $player->doubles_matches > 0;
+    $mixedIsRated = $player->mixed_matches > 0;
 @endphp
 
 <x-app-layout>
@@ -29,7 +30,7 @@
             <p class="mt-6 text-white/70">{{ ucfirst($player->preferred_hand) }} handed</p>
             <p class="text-white/70">{{ $player->user->clubs->pluck('name')->join(', ') ?: 'Independent player' }}</p>
         </section>
-        <section class="grid gap-6 md:grid-cols-2 lg:col-span-2">
+        <section class="grid gap-6 md:grid-cols-3 lg:col-span-2">
             <div class="rounded-lg bg-white p-8 shadow-lg">
                 <p class="text-xs font-black uppercase text-brand-green">Singles rating</p>
                 <p class="mt-3 text-6xl font-black text-brand-blue">{{ $singlesIsRated ? $player->singles_rating : 'Unrated' }}</p>
@@ -39,6 +40,11 @@
                 <p class="text-xs font-black uppercase text-brand-green">Doubles rating</p>
                 <p class="mt-3 text-6xl font-black text-brand-blue">{{ $doublesIsRated ? $player->doubles_rating : 'Unrated' }}</p>
                 <p class="mt-2 text-brand-ink/60">{{ $player->doubles_matches }} confirmed matches</p>
+            </div>
+            <div class="rounded-lg bg-white p-8 shadow-lg">
+                <p class="text-xs font-black uppercase text-brand-green">Mixed rating</p>
+                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $mixedIsRated ? $player->mixed_rating : 'Unrated' }}</p>
+                <p class="mt-2 text-brand-ink/60">{{ $player->mixed_matches }} confirmed matches</p>
             </div>
         </section>
     </div>

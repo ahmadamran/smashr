@@ -27,11 +27,9 @@ new class extends Component
 
             <!-- Navigation Links -->
             <div class="hidden items-center gap-8 text-sm font-extrabold uppercase md:flex">
-                <a href="{{ url('/') }}" wire:navigate class="{{ request()->is('/') ? 'text-brand-green' : 'hover:text-brand-green' }}">{{ __('Home') }}</a>
                 <a href="{{ route('rankings') }}" wire:navigate class="{{ request()->routeIs('rankings') ? 'text-brand-green' : 'hover:text-brand-green' }}">{{ __('Rankings') }}</a>
                 <a href="{{ route('tournaments.index') }}" wire:navigate class="{{ request()->routeIs('tournaments.*') ? 'text-brand-green' : 'hover:text-brand-green' }}">{{ __('Tournaments') }}</a>
                 <a href="{{ route('clubs.index') }}" wire:navigate class="{{ request()->routeIs('clubs.*') ? 'text-brand-green' : 'hover:text-brand-green' }}">{{ __('Clubs') }}</a>
-                <a href="{{ route('matches.index') }}" wire:navigate class="{{ request()->routeIs('matches.index') ? 'text-brand-green' : 'hover:text-brand-green' }}">{{ __('Results') }}</a>
             </div>
 
             <!-- Settings Dropdown -->
@@ -87,9 +85,7 @@ new class extends Component
         <div class="hidden border-t border-brand-ink/10 bg-brand-surface md:block">
             <div class="mx-auto flex max-w-7xl items-center gap-6 px-5 py-3 text-xs font-black uppercase tracking-[.12em] text-brand-ink/60">
                 <a href="{{ route('dashboard') }}" wire:navigate class="{{ request()->routeIs('dashboard') ? 'text-brand-green' : 'hover:text-brand-blue' }}">{{ __('Dashboard') }}</a>
-                <a href="{{ route('matches.create') }}" wire:navigate class="{{ request()->routeIs('matches.create') ? 'text-brand-green' : 'hover:text-brand-blue' }}">{{ __('Submit Result') }}</a>
-                <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.tournaments.index') ? 'text-brand-green' : 'hover:text-brand-blue' }}">{{ __('My Tournaments') }}</a>
-                <a href="{{ route('organizer.tournaments.create') }}" wire:navigate class="{{ request()->routeIs('organizer.tournaments.create') ? 'text-brand-green' : 'hover:text-brand-blue' }}">{{ __('Create Tournament') }}</a>
+                <a href="{{ route('organizer.tournaments.index') }}" wire:navigate class="{{ request()->routeIs('organizer.tournaments.*') ? 'text-brand-green' : 'hover:text-brand-blue' }}">{{ __('My Tournaments') }}</a>
                 @if (auth()->user()->hasRole('superadmin'))
                     <a href="{{ route('admin.dashboard') }}" wire:navigate class="{{ request()->routeIs('admin.*') ? 'text-brand-green' : 'hover:text-brand-blue' }}">{{ __('Admin') }}</a>
                 @endif
@@ -113,11 +109,9 @@ new class extends Component
         <div class="px-6 py-6 pb-32">
             @php
                 $mainLinks = [
-                    ['label' => 'Home', 'url' => url('/'), 'active' => request()->is('/')],
                     ['label' => 'Rankings', 'url' => route('rankings'), 'active' => request()->routeIs('rankings')],
                     ['label' => 'Tournaments', 'url' => route('tournaments.index'), 'active' => request()->routeIs('tournaments.*')],
                     ['label' => 'Clubs', 'url' => route('clubs.index'), 'active' => request()->routeIs('clubs.*')],
-                    ['label' => 'Results', 'url' => route('matches.index'), 'active' => request()->routeIs('matches.index')],
                 ];
                 $playerLinks = [];
                 $organizerLinks = [];
@@ -126,11 +120,9 @@ new class extends Component
                 if (auth()->check()) {
                     $playerLinks = [
                         ['label' => 'Dashboard', 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
-                        ['label' => 'Submit Result', 'url' => route('matches.create'), 'active' => request()->routeIs('matches.create')],
                     ];
                     $organizerLinks = [
-                        ['label' => 'My Tournaments', 'url' => route('organizer.tournaments.index'), 'active' => request()->routeIs('organizer.tournaments.index')],
-                        ['label' => 'Create Tournament', 'url' => route('organizer.tournaments.create'), 'active' => request()->routeIs('organizer.tournaments.create')],
+                        ['label' => 'My Tournaments', 'url' => route('organizer.tournaments.index'), 'active' => request()->routeIs('organizer.tournaments.*')],
                     ];
                     if (auth()->user()->hasRole('superadmin')) {
                         $organizerLinks[] = ['label' => 'Admin', 'url' => route('admin.dashboard'), 'active' => request()->routeIs('admin.*')];

@@ -16,6 +16,7 @@
                 <option value="">All formats</option>
                 <option value="singles" @selected(request('format') === 'singles')>Singles</option>
                 <option value="doubles" @selected(request('format') === 'doubles')>Doubles</option>
+                <option value="mixed" @selected(request('format') === 'mixed')>Mixed</option>
             </select>
             <select name="status" class="rounded-md border-brand-ink/10 text-sm">
                 <option value="">All statuses</option>
@@ -44,11 +45,18 @@
         <div class="grid gap-5 lg:grid-cols-2">
             @forelse ($matches as $match)
                 @php
-                    $sideA = $match->players->where('side', 'A')->sortBy('position')->map(fn ($player) => $player->user->playerProfile?->display_name ?? $player->user->name)->join(' / ');
-                    $sideB = $match->players->where('side', 'B')->sortBy('position')->map(fn ($player) => $player->user->playerProfile?->display_name ?? $player->user->name)->join(' / ');
+                    $sideAPlayers = $match->players->where('side', 'A')->sortBy('position')->values();
+                    $sideBPlayers = $match->players->where('side', 'B')->sortBy('position')->values();
                     $games = collect($match->score ?? [])
                         ->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))
                         ->values();
+                    $clubNames = $match->club
+                        ? collect([$match->club->name])
+                        : $match->players
+                            ->map(fn ($player) => $player->club?->name)
+                            ->filter()
+                            ->unique()
+                            ->values();
                 @endphp
                 <article class="rounded-lg bg-white p-6 shadow-lg">
                     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -63,7 +71,24 @@
                                     <span class="text-xs font-black uppercase text-brand-green">Winner</span>
                                 @endif
                             </div>
-                            <p class="mt-2 text-sm font-bold text-brand-ink/70">{{ $sideA }}</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-sm font-bold text-brand-ink/70">
+                                @forelse ($sideAPlayers as $player)
+                                    @php
+                                        $profile = $player->user->playerProfile;
+                                        $name = $profile?->display_name ?? $player->user->name;
+                                    @endphp
+                                    @if (! $loop->first)
+                                        <span class="text-brand-ink/35">/</span>
+                                    @endif
+                                    @if ($profile)
+                                        <a href="{{ route('players.show', $profile) }}" class="text-brand-blue hover:text-brand-green hover:underline" wire:navigate>{{ $name }}</a>
+                                    @else
+                                        <span>{{ $name }}</span>
+                                    @endif
+                                @empty
+                                    <span>TBA</span>
+                                @endforelse
+                            </div>
                         </div>
                         <div class="rounded-md bg-brand-blue p-4 text-white">
                             <p class="text-xs font-black uppercase tracking-[.18em] text-brand-mist">Match points</p>
@@ -87,11 +112,28 @@
                                     <span class="text-xs font-black uppercase text-brand-green">Winner</span>
                                 @endif
                             </div>
-                            <p class="mt-2 text-sm font-bold text-brand-ink/70">{{ $sideB }}</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-sm font-bold text-brand-ink/70">
+                                @forelse ($sideBPlayers as $player)
+                                    @php
+                                        $profile = $player->user->playerProfile;
+                                        $name = $profile?->display_name ?? $player->user->name;
+                                    @endphp
+                                    @if (! $loop->first)
+                                        <span class="text-brand-ink/35">/</span>
+                                    @endif
+                                    @if ($profile)
+                                        <a href="{{ route('players.show', $profile) }}" class="text-brand-blue hover:text-brand-green hover:underline" wire:navigate>{{ $name }}</a>
+                                    @else
+                                        <span>{{ $name }}</span>
+                                    @endif
+                                @empty
+                                    <span>TBA</span>
+                                @endforelse
+                            </div>
                         </div>
                     </div>
-                    <div class="mt-5 grid gap-2 border-t border-brand-ink/10 pt-4 text-sm text-brand-ink/60 sm:grid-cols-2">
-                        <p><span class="font-black text-brand-blue">Club:</span> {{ $match->club?->name ?? 'None' }}</p>
+                    <div class="mt-5 grid gap-2 border-t border-brand-ink/10 pt-4 text-sm text-brand-ink/60">
+                        <p><span class="font-black text-brand-blue">Club:</span> {{ $clubNames->join(', ') ?: 'None' }}</p>
                         <p><span class="font-black text-brand-blue">Tournament:</span> {{ $match->tournament?->name ?? 'None' }}</p>
                     </div>
                 </article>

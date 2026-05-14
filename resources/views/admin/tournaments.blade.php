@@ -7,7 +7,7 @@
                 <x-admin.search-input placeholder="Search tournaments" />
                 <select name="status" class="rounded-md border-brand-ink/10 text-sm font-bold text-brand-ink"><option value="">All statuses</option>@foreach(['draft','published','archived'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>@endforeach</select>
             </x-admin.filter-bar>
-            <a href="{{ route('admin.tournaments.create') }}" class="rounded-md bg-brand-blue px-4 py-3 text-xs font-black uppercase text-white">Create tournament</a>
+            <a href="{{ route('organizer.tournaments.create') }}" class="rounded-md bg-brand-blue px-4 py-3 text-xs font-black uppercase text-white">Create tournament</a>
         </div>
         <x-admin.table>
             <thead class="bg-brand-blue text-white"><tr>@foreach(['Tournament name','Club','Country','State','City','Start date','End date','Match count','Status','Actions'] as $heading)<th class="px-4 py-3 text-xs font-black uppercase">{{ $heading }}</th>@endforeach</tr></thead>

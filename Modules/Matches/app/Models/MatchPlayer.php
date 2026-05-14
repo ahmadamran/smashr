@@ -6,10 +6,12 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Clubs\Models\Club;
 
 #[Fillable([
     'match_id',
     'user_id',
+    'club_id',
     'side',
     'position',
     'rating_before',
@@ -37,5 +39,10 @@ class MatchPlayer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
     }
 }

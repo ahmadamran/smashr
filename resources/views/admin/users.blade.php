@@ -40,7 +40,7 @@
                         <td class="px-4 py-4">{{ $user->roles->pluck('name')->join(', ') ?: 'Player' }}</td>
                         <td class="px-4 py-4"><x-admin.status-badge :status="$user->suspended_at ? 'suspended' : 'active'" /></td>
                         <td class="px-4 py-4 font-black">{{ $user->playerProfile?->smashr_points ?? 0 }}</td>
-                        <td class="px-4 py-4">{{ $user->playerProfile?->singles_rating ?? '3.500' }} / {{ $user->playerProfile?->doubles_rating ?? '3.500' }}</td>
+                        <td class="px-4 py-4">{{ $user->playerProfile?->singles_rating ?? '3.500' }} / {{ $user->playerProfile?->doubles_rating ?? '3.500' }} / {{ $user->playerProfile?->mixed_rating ?? '3.500' }}</td>
                         <td class="px-4 py-4">{{ $user->match_players_count }}</td>
                         <td class="px-4 py-4">{{ $user->updated_at?->diffForHumans() }}</td>
                         <td class="px-4 py-4">

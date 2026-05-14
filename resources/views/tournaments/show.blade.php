@@ -7,7 +7,7 @@
             </div>
             @auth
                 @if ($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'))
-                    <a href="{{ route('organizer.tournaments.edit', $tournament) }}" class="w-fit rounded-full bg-brand-blue px-5 py-3 text-xs font-black uppercase text-white">Manage tournament</a>
+                    <a href="{{ route('organizer.tournaments.edit', $tournament) }}" class="inline-flex w-fit items-center justify-center rounded-full bg-brand-blue px-5 py-3 text-center text-xs font-black uppercase leading-tight text-white">Manage tournament</a>
                 @endif
             @endauth
         </div>
@@ -18,6 +18,25 @@
             <div class="mb-6 rounded-lg bg-green-50 p-4 text-sm font-bold text-green-800">{{ session('status') }}</div>
         @endif
         @include('tournaments.partials.nav', ['tournament' => $tournament])
+
+        @if (($liveMatches ?? collect())->isNotEmpty())
+            <section class="mb-6 rounded-lg border border-red-600/10 bg-white p-5 shadow-lg">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-[.25em] text-red-600">Live now</p>
+                        <h2 class="mt-1 text-2xl font-black text-brand-blue">{{ $liveMatches->count() }} {{ \Illuminate\Support\Str::plural('match', $liveMatches->count()) }} in progress</h2>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            @foreach ($liveMatches->take(3) as $match)
+                                <span class="rounded-full bg-brand-surface px-3 py-1 text-xs font-black uppercase text-brand-blue">
+                                    {{ $match->court_label ?: $match->tournamentCategory?->name ?: 'Live court' }}
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
+                    <a href="{{ route('tournaments.matches', $tournament).'#live' }}" class="inline-flex w-fit items-center justify-center rounded-full bg-red-600 px-5 py-3 text-xs font-black uppercase text-white shadow-sm">View live matches</a>
+                </div>
+            </section>
+        @endif
 
         <div class="grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
             <section class="rounded-lg bg-white p-6 shadow-lg">

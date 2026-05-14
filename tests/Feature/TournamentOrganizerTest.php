@@ -132,6 +132,148 @@ class TournamentOrganizerTest extends TestCase
         $this->assertSame(1, $entrant->fresh()->players()->count());
     }
 
+    public function test_public_players_tabs_show_seeded_and_confirmed_winners(): void
+    {
+        $organizer = $this->player('Tabs Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Tabbed Singles', 'singles');
+        $seeded = $this->entrant($tournament, $category, [$this->player('Seeded Entrant')], 'approved', 1, ['Seeded Club']);
+        $winner = $this->entrant($tournament, $category, [$this->player('Winning Entrant')], 'approved', 2, ['Winner Club']);
+        $this->entrant($tournament, $category, [$this->player('Regular Entrant')], 'approved');
+        $this->entrant($tournament, $category, [$this->player('Fourth Entrant')], 'approved');
+
+        $final = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $organizer->id,
+            'tournament_id' => $tournament->id,
+            'tournament_category_id' => $category->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [
+                ['a' => 18, 'b' => 21],
+                ['a' => 19, 'b' => 21],
+            ],
+            'winner_side' => 'B',
+            'draw_round' => 2,
+            'draw_position' => 1,
+        ]);
+        $final->players()->create(['user_id' => $seeded->players->first()->user_id, 'side' => 'A', 'position' => 1]);
+        $final->players()->create(['user_id' => $winner->players->first()->user_id, 'side' => 'B', 'position' => 1]);
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', $tournament))
+            ->assertOk()
+            ->assertSee('Entrants')
+            ->assertDontSee('Champion');
+
+        $this->get(route('tournaments.players', ['tournament' => $tournament, 'tab' => 'seeded']))
+            ->assertOk()
+            ->assertSee('Tournament seeds')
+            ->assertSee('Seeded Entrant')
+            ->assertSee('Winning Entrant')
+            ->assertDontSee('Regular Entrant');
+
+        $this->get(route('tournaments.winners', $tournament))
+            ->assertOk()
+            ->assertSee('Tournament winners')
+            ->assertSee('Top 4 finishers')
+            ->assertSee('Tabbed Singles')
+            ->assertSee('Winning Entrant')
+            ->assertSee('Winner Club')
+            ->assertSee('Seeded Entrant')
+            ->assertDontSee('18-21, 19-21');
+    }
+
+    public function test_public_winners_use_highest_confirmed_draw_round_as_final(): void
+    {
+        $organizer = $this->player('Imported Winner Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Imported Girls Under 18', 'singles');
+        $semifinalLoser = $this->entrant($tournament, $category, [$this->player('Imported Semifinal Loser')], 'approved', 1);
+        $runnerUp = $this->entrant($tournament, $category, [$this->player('Imported Runner Up')], 'approved', 2);
+        $champion = $this->entrant($tournament, $category, [$this->player('Imported Champion')], 'approved', 3);
+
+        $semifinal = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $organizer->id,
+            'tournament_id' => $tournament->id,
+            'tournament_category_id' => $category->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [
+                ['a' => 21, 'b' => 10],
+                ['a' => 21, 'b' => 19],
+            ],
+            'winner_side' => 'A',
+            'draw_round' => 6,
+            'draw_position' => 1,
+        ]);
+        $semifinal->players()->create(['user_id' => $runnerUp->players->first()->user_id, 'side' => 'A', 'position' => 1]);
+        $semifinal->players()->create(['user_id' => $semifinalLoser->players->first()->user_id, 'side' => 'B', 'position' => 1]);
+
+        $final = MatchRecord::create([
+            'format' => 'singles',
+            'submitted_by' => $organizer->id,
+            'tournament_id' => $tournament->id,
+            'tournament_category_id' => $category->id,
+            'status' => 'confirmed',
+            'played_at' => now()->toDateString(),
+            'score' => [
+                ['a' => 21, 'b' => 15],
+                ['a' => 9, 'b' => 21],
+                ['a' => 13, 'b' => 21],
+            ],
+            'winner_side' => 'B',
+            'draw_round' => 7,
+            'draw_position' => 1,
+        ]);
+        $final->players()->create(['user_id' => $runnerUp->players->first()->user_id, 'side' => 'A', 'position' => 1]);
+        $final->players()->create(['user_id' => $champion->players->first()->user_id, 'side' => 'B', 'position' => 1]);
+
+        $this->get(route('tournaments.winners', $tournament))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Imported Girls Under 18',
+                '1',
+                'Imported Champion',
+                '2',
+                'Imported Runner Up',
+            ]);
+    }
+
+    public function test_registration_tabs_hide_seeded_and_winners_when_empty_and_user_search_filters_players(): void
+    {
+        $organizer = $this->player('Search Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Search Singles', 'singles');
+        $this->entrant($tournament, $category, [$this->player('Unseeded Entrant')], 'approved');
+        $target = $this->player('Ajax Search Player');
+        $target->playerProfile->forceFill([
+            'singles_rating' => 3.765,
+            'doubles_rating' => 3.456,
+        ])->save();
+        $this->player('Other Search Player');
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', $tournament))
+            ->assertOk()
+            ->assertDontSee('Tournament seeds')
+            ->assertDontSee('Tournament winners');
+
+        $this->actingAs($organizer)
+            ->getJson(route('organizer.tournaments.entrants.user-search', ['tournament' => $tournament, 'q' => 'ajax']))
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $target->id,
+                'name' => 'Ajax Search Player',
+                'singles' => '3.765',
+                'doubles' => '3.456',
+            ])
+            ->assertJsonMissing([
+                'name' => 'Other Search Player',
+            ]);
+    }
+
     public function test_single_elimination_and_round_robin_draw_generation(): void
     {
         $organizer = $this->player('Draw Owner');
@@ -610,7 +752,12 @@ class TournamentOrganizerTest extends TestCase
 
         $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
 
-        $this->get(route('tournaments.show', $tournament))->assertOk()->assertSee('Open Singles')->assertSee($entrantA->players->first()->user->name);
+        $this->get(route('tournaments.show', $tournament))
+            ->assertOk()
+            ->assertSee('Open Singles')
+            ->assertSee($entrantA->players->first()->user->name)
+            ->assertDontSee('Live now')
+            ->assertDontSee('Live Scores');
         $this->get(route('tournaments.draw', [$tournament, $category]))
             ->assertOk()
             ->assertSee('Open Singles draw')
@@ -625,6 +772,25 @@ class TournamentOrganizerTest extends TestCase
             ->assertSee('Grid')
             ->assertDontSee('Tournament schedule')
             ->assertDontSee('Filter date');
+    }
+
+    public function test_tournament_overview_signals_live_matches_without_live_nav_item(): void
+    {
+        $organizer = $this->player('Overview Live Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Overview Live Singles', 'singles');
+        $opponent = $this->player('Overview Live Opponent');
+
+        $this->scheduledTournamentMatch($tournament, $category, $this->player('Overview Live Player'), $opponent, now()->toDateString(), 'Court Live', 'live');
+
+        $this->get(route('tournaments.show', $tournament))
+            ->assertOk()
+            ->assertSee('Live now')
+            ->assertSee('1 match in progress')
+            ->assertSee('Court Live')
+            ->assertSee('View live matches')
+            ->assertSee('#live', false)
+            ->assertDontSee('Live Scores');
     }
 
     public function test_public_tournament_players_page_lists_approved_players_and_searches_names_or_schools(): void
@@ -708,6 +874,29 @@ class TournamentOrganizerTest extends TestCase
             ->assertSee('Draw Gamma')
             ->assertDontSee('Draw Alpha')
             ->assertDontSee('Draw Beta');
+    }
+
+    public function test_mixed_tournament_categories_generate_mixed_matches(): void
+    {
+        $organizer = $this->player('Mixed Draw Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Mixed Under 18', 'mixed');
+        [$a1, $a2, $b1, $b2] = [
+            $this->player('Tournament Mixed A One', 'male'),
+            $this->player('Tournament Mixed A Two', 'female'),
+            $this->player('Tournament Mixed B One', 'male'),
+            $this->player('Tournament Mixed B Two', 'female'),
+        ];
+
+        $this->entrant($tournament, $category, [$a1, $a2], 'approved', 1);
+        $this->entrant($tournament, $category, [$b1, $b2], 'approved', 2);
+
+        app(TournamentDrawService::class)->generate($category);
+
+        $match = $category->matches()->firstOrFail();
+
+        $this->assertSame('mixed', $match->format);
+        $this->assertSame(4, $match->players()->count());
     }
 
     public function test_tournament_matches_search_filters_by_player_or_school_and_preserves_date_filter(): void
@@ -845,7 +1034,7 @@ class TournamentOrganizerTest extends TestCase
         return $entrant->load('players.user.playerProfile');
     }
 
-    private function player(string $name): User
+    private function player(string $name, ?string $gender = null): User
     {
         $user = User::factory()->create([
             'name' => $name,
@@ -861,6 +1050,7 @@ class TournamentOrganizerTest extends TestCase
             'city' => 'Kuala Lumpur',
             'preferred_hand' => 'right',
             'primary_format' => 'doubles',
+            'gender' => $gender,
         ]);
 
         return $user->load('playerProfile');

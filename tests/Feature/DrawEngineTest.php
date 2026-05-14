@@ -16,7 +16,7 @@ class DrawEngineTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_draw_engine_page_renders_for_organizer(): void
+    public function test_draw_engine_url_redirects_to_merged_draws_page_for_organizer(): void
     {
         $organizer = $this->player('Engine Owner');
         $tournament = $this->tournament($organizer);
@@ -24,9 +24,25 @@ class DrawEngineTest extends TestCase
 
         $this->actingAs($organizer)
             ->get(route('organizer.tournaments.draw-engine', $tournament))
+            ->assertRedirect(route('organizer.tournaments.draws', $tournament));
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.draws', $tournament))
             ->assertOk()
-            ->assertSee('Draw Engine')
-            ->assertSee('Select tournament event');
+            ->assertSee('Draws')
+            ->assertSee('Manage draw')
+            ->assertSee('Open Singles')
+            ->assertDontSee('>Draw Engine</a>', false);
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.draws', ['tournament' => $tournament, 'category' => $tournament->categories->first()->slug]))
+            ->assertRedirect(route('organizer.tournaments.draws.manage', [$tournament, $tournament->categories->first()]));
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.draws.manage', [$tournament, $tournament->categories->first()]))
+            ->assertOk()
+            ->assertSee('Generate draw and schedule')
+            ->assertSee('Open Singles has 0 approved entrants and 0 generated matches.');
     }
 
     public function test_generators_support_all_draw_types(): void
@@ -107,7 +123,7 @@ class DrawEngineTest extends TestCase
         ];
 
         $firstResponse = $this->actingAs($organizer)
-            ->post(route('organizer.tournaments.draw-engine.generate', $tournament), $payload);
+            ->post(route('organizer.tournaments.draws.generate-engine', [$tournament, $category]), $payload);
 
         $firstResponse->assertSessionHasNoErrors();
         $firstResponse->assertRedirect();
@@ -115,7 +131,7 @@ class DrawEngineTest extends TestCase
         $this->assertSame(2, $category->matches()->count());
 
         $response = $this->actingAs($organizer)
-            ->post(route('organizer.tournaments.draw-engine.generate', $tournament), $payload);
+            ->post(route('organizer.tournaments.draws.generate-engine', [$tournament, $category]), $payload);
 
         $response->assertRedirect();
         $errors = $response->baseResponse->getSession()->get('errors');
@@ -126,7 +142,7 @@ class DrawEngineTest extends TestCase
         );
 
         $this->actingAs($organizer)
-            ->post(route('organizer.tournaments.draw-engine.generate', $tournament), [...$payload, 'confirm_overwrite' => 1])
+            ->post(route('organizer.tournaments.draws.generate-engine', [$tournament, $category]), [...$payload, 'confirm_overwrite' => 1])
             ->assertRedirect();
 
         $this->assertSame(2, $category->matches()->count());

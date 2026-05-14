@@ -11,7 +11,7 @@
                     <div><dt class="text-xs font-black uppercase text-brand-ink/50">Phone</dt><dd class="font-bold">{{ $user->playerProfile?->phone_number ?: 'Not set' }}</dd></div>
                     <div><dt class="text-xs font-black uppercase text-brand-ink/50">Role</dt><dd class="font-bold">{{ $user->roles->pluck('name')->join(', ') ?: 'Player' }}</dd></div>
                     <div><dt class="text-xs font-black uppercase text-brand-ink/50">Status</dt><dd><x-admin.status-badge :status="$user->suspended_at ? 'suspended' : 'active'" /></dd></div>
-                    <div><dt class="text-xs font-black uppercase text-brand-ink/50">Rating</dt><dd class="font-bold">{{ $user->playerProfile?->singles_rating ?? '3.500' }} / {{ $user->playerProfile?->doubles_rating ?? '3.500' }}</dd></div>
+                    <div><dt class="text-xs font-black uppercase text-brand-ink/50">Rating</dt><dd class="font-bold">{{ $user->playerProfile?->singles_rating ?? '3.500' }} / {{ $user->playerProfile?->doubles_rating ?? '3.500' }} / {{ $user->playerProfile?->mixed_rating ?? '3.500' }}</dd></div>
                 </dl>
                 <div class="mt-6 flex flex-wrap gap-3">
                     <a href="{{ route('admin.users.edit', $user) }}" class="rounded-md bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Edit</a>

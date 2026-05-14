@@ -11,6 +11,9 @@
     $topDoubles = Schema::hasTable('player_profiles')
         ? PlayerProfile::where('doubles_matches', '>', 0)->orderByDesc('doubles_rating')->limit(3)->get()
         : collect();
+    $topMixed = Schema::hasTable('player_profiles') && Schema::hasColumn('player_profiles', 'mixed_rating')
+        ? PlayerProfile::where('mixed_matches', '>', 0)->orderByDesc('mixed_rating')->limit(3)->get()
+        : collect();
     $recentMatches = Schema::hasTable('matches')
         ? MatchRecord::with('players.user.playerProfile')->where('status', 'confirmed')->latest()->limit(3)->get()
         : collect();
@@ -44,7 +47,6 @@
                     <a href="{{ route('rankings') }}" class="hover:text-brand-green">Rankings</a>
                     <a href="{{ route('tournaments.index') }}" class="hover:text-brand-green">Tournaments</a>
                     <a href="{{ route('clubs.index') }}" class="hover:text-brand-green">Clubs</a>
-                    <a href="{{ route('matches.index') }}" class="hover:text-brand-green">Results</a>
                 </nav>
                 <div class="hidden items-center gap-4 text-sm font-bold uppercase md:flex">
                     @auth
@@ -76,11 +78,9 @@
                 </div>
                 <div class="px-6 py-10">
                     <div class="divide-y divide-dashed divide-brand-ink/15 border-y border-dashed border-brand-ink/15">
-                        <a href="/" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Home</a>
                         <a href="{{ route('rankings') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Rankings</a>
                         <a href="{{ route('tournaments.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Tournaments</a>
                         <a href="{{ route('clubs.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Clubs</a>
-                        <a href="{{ route('matches.index') }}" class="block py-6 text-2xl font-black uppercase tracking-[.18em]">Results</a>
                     </div>
                     <div class="mt-8 grid grid-cols-2 gap-3">
                         @auth
@@ -127,7 +127,7 @@
                         </div>
                         <div class="rounded-lg bg-brand-blue-deep p-6 shadow-xl">
                             <p class="text-xs font-black uppercase tracking-[.25em] text-brand-mist">Club ready</p>
-                            <h2 class="mt-2 text-2xl font-black">Singles and doubles ratings from confirmed match results.</h2>
+                            <h2 class="mt-2 text-2xl font-black">Singles, doubles, and mixed ratings from confirmed match results.</h2>
                         </div>
                     </aside>
                 </div>

@@ -392,8 +392,8 @@ class TournamentSoftwareImportService
                 'score_submitted_at' => $status === 'confirmed' ? ($scheduledAt ?? now()) : null,
             ]);
 
-            $this->attachSourcePlayer($match, $sourceMatch['side_a_source_player_id'] ?? null, 'A', $usersBySourcePlayerId);
-            $this->attachSourcePlayer($match, $sourceMatch['side_b_source_player_id'] ?? null, 'B', $usersBySourcePlayerId);
+            $this->attachSourcePlayer($match, $category, $sourceMatch['side_a_source_player_id'] ?? null, 'A', $usersBySourcePlayerId);
+            $this->attachSourcePlayer($match, $category, $sourceMatch['side_b_source_player_id'] ?? null, 'B', $usersBySourcePlayerId);
 
             if ($shouldApplyRating) {
                 app(RatingService::class)->confirmAsAdmin($match->fresh());
@@ -465,17 +465,39 @@ class TournamentSoftwareImportService
             && blank($sourceMatch['scheduled_at'] ?? null);
     }
 
-    private function attachSourcePlayer(MatchRecord $match, ?string $sourcePlayerId, string $side, Collection $usersBySourcePlayerId): void
+    private function attachSourcePlayer(MatchRecord $match, TournamentCategory $category, ?string $sourcePlayerId, string $side, Collection $usersBySourcePlayerId): void
     {
         if (! $sourcePlayerId || ! $usersBySourcePlayerId->has((string) $sourcePlayerId)) {
             return;
         }
 
+        $user = $usersBySourcePlayerId->get((string) $sourcePlayerId);
+
         $match->players()->create([
-            'user_id' => $usersBySourcePlayerId->get((string) $sourcePlayerId)->id,
+            'user_id' => $user->id,
+            'club_id' => $this->clubIdForImportedMatchPlayer($category, $user->id),
             'side' => $side,
             'position' => 1,
         ]);
+    }
+
+    private function clubIdForImportedMatchPlayer(TournamentCategory $category, int $userId): ?int
+    {
+        $schoolName = $category->entrants()
+            ->where('status', 'approved')
+            ->whereHas('players', fn ($players) => $players->where('user_id', $userId))
+            ->with(['players' => fn ($players) => $players->where('user_id', $userId)])
+            ->get()
+            ->flatMap->players
+            ->pluck('school_name')
+            ->filter()
+            ->first();
+
+        if (blank($schoolName)) {
+            return null;
+        }
+
+        return Club::whereRaw('lower(name) = ?', [Str::lower($schoolName)])->value('id');
     }
 
     private function playerImportEmail(array $player): string

@@ -4,11 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Livewire\Volt\Volt;
 use Modules\Clubs\Models\Club;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Players\Models\PlayerProfile;
+use Modules\Ratings\Models\RatingAlgorithm;
 use Modules\Ratings\Models\RatingEvent;
+use Modules\Ratings\Services\RatingRecalculationService;
 use Modules\Ratings\Services\RatingService;
 use Modules\Tournaments\Models\Tournament;
 use Tests\TestCase;
@@ -107,6 +110,79 @@ class SmashrPlatformTest extends TestCase
         $this->assertNotSame('3.500', $a1->playerProfile->fresh()->doubles_rating);
     }
 
+    public function test_mixed_rating_is_separate_from_singles_and_doubles_rating(): void
+    {
+        [$a1, $a2, $b1, $b2] = [
+            $this->player('Mixed A One', 'male'),
+            $this->player('Mixed A Two', 'female'),
+            $this->player('Mixed B One', 'male'),
+            $this->player('Mixed B Two', 'female'),
+        ];
+
+        $match = MatchRecord::create([
+            'format' => 'mixed',
+            'submitted_by' => $a1->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 19], ['a' => 21, 'b' => 18]],
+            'winner_side' => 'A',
+        ]);
+
+        foreach ([[$a1, 'A', 1], [$a2, 'A', 2], [$b1, 'B', 1], [$b2, 'B', 2]] as [$user, $side, $position]) {
+            $match->players()->create([
+                'user_id' => $user->id,
+                'side' => $side,
+                'position' => $position,
+                'confirmed_at' => $user->is($a1) ? now() : null,
+            ]);
+        }
+
+        foreach ([$a2, $b1, $b2] as $user) {
+            app(RatingService::class)->confirmForUser($match->fresh(), $user->id);
+        }
+
+        $profile = $a1->playerProfile->fresh();
+
+        $this->assertSame('3.500', $profile->singles_rating);
+        $this->assertSame('3.500', $profile->doubles_rating);
+        $this->assertNotSame('3.500', $profile->mixed_rating);
+        $this->assertSame(1, $profile->mixed_matches);
+
+        $a1->playerProfile->forceFill(['mixed_rating' => 4.900, 'mixed_matches' => 9])->save();
+        app(RatingRecalculationService::class)->apply(RatingAlgorithm::active());
+
+        $rebuilt = $a1->playerProfile->fresh();
+        $this->assertNotSame('4.900', $rebuilt->mixed_rating);
+        $this->assertSame(1, $rebuilt->mixed_matches);
+    }
+
+    public function test_mixed_match_validation_requires_one_male_and_one_female_per_side(): void
+    {
+        [$a1, $a2, $b1, $b2] = [
+            $this->player('Invalid Mixed A One', 'male'),
+            $this->player('Invalid Mixed A Two', 'male'),
+            $this->player('Invalid Mixed B One', 'male'),
+            $this->player('Invalid Mixed B Two', 'female'),
+        ];
+
+        $match = MatchRecord::create([
+            'format' => 'mixed',
+            'submitted_by' => $a1->id,
+            'status' => 'pending_confirmation',
+            'played_at' => now()->toDateString(),
+            'score' => [['a' => 21, 'b' => 19]],
+            'winner_side' => 'A',
+        ]);
+
+        foreach ([[$a1, 'A', 1], [$a2, 'A', 2], [$b1, 'B', 1], [$b2, 'B', 2]] as [$user, $side, $position]) {
+            $match->players()->create(['user_id' => $user->id, 'side' => $side, 'position' => $position]);
+        }
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        app(RatingService::class)->confirmAsAdmin($match);
+    }
+
     public function test_rankings_hide_players_without_confirmed_matches(): void
     {
         $rated = $this->player('Rated Player');
@@ -147,6 +223,82 @@ class SmashrPlatformTest extends TestCase
             ->assertSee('Women&#039;s singles leaderboard', false)
             ->assertSee('Women Ranking Player')
             ->assertDontSee('Men Ranking Player');
+    }
+
+    public function test_rankings_support_mixed_format_and_age_filters(): void
+    {
+        Carbon::setTestNow('2026-05-14 10:00:00');
+
+        $under12 = $this->player('Under Twelve Mixed Player');
+        $under15 = $this->player('Under Fifteen Mixed Player');
+        $under18 = $this->player('Under Eighteen Mixed Player');
+        $adult = $this->player('Adult Mixed Player');
+        $unknownAge = $this->player('Unknown Age Mixed Player');
+
+        $under12->playerProfile->forceFill(['birthdate' => '2014-06-01', 'mixed_rating' => 3.900, 'mixed_matches' => 1])->save();
+        $under15->playerProfile->forceFill(['birthdate' => '2011-06-01', 'mixed_rating' => 3.800, 'mixed_matches' => 1])->save();
+        $under18->playerProfile->forceFill(['birthdate' => '2008-06-01', 'mixed_rating' => 3.700, 'mixed_matches' => 1])->save();
+        $adult->playerProfile->forceFill(['birthdate' => '1990-01-01', 'mixed_rating' => 3.600, 'mixed_matches' => 1])->save();
+        $unknownAge->playerProfile->forceFill(['mixed_rating' => 3.500, 'mixed_matches' => 1])->save();
+
+        $this->get('/rankings?format=mixed')
+            ->assertOk()
+            ->assertSee('Overall mixed leaderboard')
+            ->assertSee('Unknown Age Mixed Player');
+
+        $this->get('/rankings?format=mixed&age_group=u12')
+            ->assertOk()
+            ->assertSee('Under Twelve Mixed Player')
+            ->assertDontSee('Under Fifteen Mixed Player')
+            ->assertDontSee('Unknown Age Mixed Player');
+
+        $this->get('/rankings?format=mixed&age_group=u15')
+            ->assertOk()
+            ->assertSee('Under Twelve Mixed Player')
+            ->assertSee('Under Fifteen Mixed Player')
+            ->assertDontSee('Under Eighteen Mixed Player');
+
+        $this->get('/rankings?format=mixed&age_group=u18')
+            ->assertOk()
+            ->assertSee('Under Eighteen Mixed Player')
+            ->assertDontSee('Adult Mixed Player')
+            ->assertDontSee('Unknown Age Mixed Player');
+
+        $this->get('/rankings?format=mixed&age_group=adult')
+            ->assertOk()
+            ->assertSee('Adult Mixed Player')
+            ->assertDontSee('Under Eighteen Mixed Player')
+            ->assertDontSee('Unknown Age Mixed Player');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_public_submit_result_accepts_mixed_matches(): void
+    {
+        [$a1, $a2, $b1, $b2] = [
+            $this->player('Public Mixed A One', 'male'),
+            $this->player('Public Mixed A Two', 'female'),
+            $this->player('Public Mixed B One', 'male'),
+            $this->player('Public Mixed B Two', 'female'),
+        ];
+
+        $this->actingAs($a1);
+
+        Volt::test('matches.create')
+            ->set('format', 'mixed')
+            ->set('side_a_1', $a1->email)
+            ->set('side_a_2', $a2->email)
+            ->set('side_b_1', $b1->email)
+            ->set('side_b_2', $b2->email)
+            ->set('winner_side', 'A')
+            ->set('played_at', now()->toDateString())
+            ->call('submit');
+
+        $match = MatchRecord::where('format', 'mixed')->latest('id')->firstOrFail();
+
+        $this->assertSame(4, $match->players()->count());
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $a2->id, 'side' => 'A']);
+        $this->assertDatabaseHas('match_players', ['match_id' => $match->id, 'user_id' => $b2->id, 'side' => 'B']);
     }
 
     public function test_rankings_can_search_by_player_name(): void
@@ -351,15 +503,17 @@ class SmashrPlatformTest extends TestCase
 
         $this->get('/matches?format=doubles')
             ->assertOk()
-            ->assertSee('Doubles Index A One / Doubles Index A Two')
-            ->assertSee('Doubles Index B One / Doubles Index B Two')
+            ->assertSee('Doubles Index A One')
+            ->assertSee('Doubles Index A Two')
+            ->assertSee('Doubles Index B One')
+            ->assertSee('Doubles Index B Two')
             ->assertSee('Game 1')
             ->assertSee('21 - 19')
             ->assertSee('Game 2')
             ->assertSee('21 - 18');
     }
 
-    private function player(string $name): User
+    private function player(string $name, ?string $gender = null): User
     {
         $user = User::factory()->create([
             'name' => $name,
@@ -375,6 +529,7 @@ class SmashrPlatformTest extends TestCase
             'city' => 'Kuala Lumpur',
             'preferred_hand' => 'right',
             'primary_format' => 'doubles',
+            'gender' => $gender,
         ]);
 
         return $user->load('playerProfile');

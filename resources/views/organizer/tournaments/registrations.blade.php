@@ -1,25 +1,18 @@
 <x-app-layout>
-    <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">Registrations | {{ $tournament->name }}</h1></x-slot>
+    <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">{{ $tournament->name }}</h1></x-slot>
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         @include('organizer.tournaments.partials.nav', ['tournament' => $tournament])
         @if (session('status')) <div class="mb-6 rounded bg-green-50 p-4 font-bold text-green-800">{{ session('status') }}</div> @endif
 
         <section class="mb-8 rounded-lg bg-white p-6 shadow-lg">
-            <h2 class="text-2xl font-black text-brand-blue">Add entrant</h2>
-            <form method="POST" action="{{ route('organizer.tournaments.entrants.store', $tournament) }}" class="mt-5 grid gap-3 md:grid-cols-6">@csrf
-                <select name="tournament_category_id" class="rounded-md border-gray-300 md:col-span-2">
-                    @foreach ($tournament->categories as $category)
-                        <option value="{{ $category->id }}">{{ $category->name }}</option>
-                    @endforeach
-                </select>
-                <select name="player_one_id" class="rounded-md border-gray-300"><option value="">Player 1 user</option>@foreach($users as $user)<option value="{{ $user->id }}">{{ $user->playerProfile?->display_name ?? $user->name }}</option>@endforeach</select>
-                <select name="player_two_id" class="rounded-md border-gray-300"><option value="">Player 2 user</option>@foreach($users as $user)<option value="{{ $user->id }}">{{ $user->playerProfile?->display_name ?? $user->name }}</option>@endforeach</select>
-                <input name="player_one_name" placeholder="Player 1 name" class="rounded-md border-gray-300">
-                <input name="player_two_name" placeholder="Player 2 name" class="rounded-md border-gray-300">
-                <select name="status" class="rounded-md border-gray-300"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option><option value="withdrawn">Withdrawn</option></select>
-                <input name="seed" type="number" min="1" placeholder="Seed" class="rounded-md border-gray-300">
-                <button class="rounded-md bg-brand-blue px-4 py-2 text-sm font-black uppercase text-white md:col-span-4">Add entrant</button>
-            </form>
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Registration control</p>
+                    <h2 class="text-2xl font-black text-brand-blue">Entrants</h2>
+                </div>
+                <a href="{{ route('organizer.tournaments.entrants.create', $tournament) }}" class="w-fit rounded-full bg-brand-blue px-5 py-3 text-xs font-black uppercase text-white shadow-sm transition hover:bg-brand-blue-dark">Add entrant</a>
+            </div>
+            <p class="mt-3 max-w-2xl text-sm font-bold text-brand-ink/60">Review submitted registrations, update approval status, and manage seeding per category.</p>
         </section>
 
         <div class="grid gap-6">
@@ -31,7 +24,12 @@
                             <form method="POST" action="{{ route('organizer.tournaments.entrants.update', [$tournament, $entrant]) }}" class="grid items-center gap-3 rounded-md border border-brand-ink/10 p-4 md:grid-cols-5">@csrf @method('PATCH')
                                 <div class="md:col-span-2">
                                     <p class="font-black text-brand-blue">{{ $entrant->displayName() ?: 'Unnamed entrant' }}</p>
-                                    <p class="text-xs font-bold uppercase text-brand-ink/40">{{ $entrant->created_at->format('M j, Y') }}</p>
+                                    <p class="text-xs font-bold uppercase text-brand-ink/40">
+                                        {{ $entrant->created_at->format('M j, Y') }}
+                                        @if ($entrant->seed)
+                                            <span class="ml-2 rounded-full bg-brand-surface px-2 py-1 text-brand-blue">Seed {{ $entrant->seed }}</span>
+                                        @endif
+                                    </p>
                                     @if ($entrant->contact_name || $entrant->contact_phone || $entrant->identity_number)
                                         <div class="mt-3 rounded-md bg-brand-surface p-3 text-xs font-bold text-brand-ink/60">
                                             <p>{{ $entrant->contact_name ?: 'No contact name' }} @if($entrant->contact_phone) | {{ $entrant->contact_phone }} @endif</p>
