@@ -5553,10 +5553,19 @@
                 "side_a_name": "YEO SHI YAO",
                 "side_b_source_player_id": "409",
                 "side_b_name": "TE SHIN HENG",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 7
+                    },
+                    {
+                        "a": 21,
+                        "b": 13
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -5569,10 +5578,19 @@
                 "side_a_name": "PUTRA MUHAMAD SAHAKMIL",
                 "side_b_source_player_id": "407",
                 "side_b_name": "ANDSON CHUA GANG SHEN",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 11,
+                        "b": 21
+                    },
+                    {
+                        "a": 13,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -5580,15 +5598,24 @@
                 "draw_round": 7,
                 "draw_position": 1,
                 "scheduled_at": "2026-05-14 12:00:00",
-                "time_text": "Thu 5/14/2026 12:00 PM",
-                "side_a_source_player_id": null,
-                "side_a_name": null,
-                "side_b_source_player_id": null,
-                "side_b_name": null,
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "time_text": "12:00 PM",
+                "side_a_source_player_id": "406",
+                "side_a_name": "YEO SHI YAO",
+                "side_b_source_player_id": "407",
+                "side_b_name": "ANDSON CHUA GANG SHEN",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 17
+                    },
+                    {
+                        "a": 21,
+                        "b": 14
+                    }
+                ]
             }
         ],
         "L15": [
@@ -7927,10 +7954,19 @@
                 "side_a_name": "HOVEN SOON HAW WEN",
                 "side_b_source_player_id": "565",
                 "side_b_name": "MIKE EVAN MELCYUS",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 13
+                    },
+                    {
+                        "a": 21,
+                        "b": 10
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -7943,10 +7979,19 @@
                 "side_a_name": "JAYDEN LIM ZHEHUI",
                 "side_b_source_player_id": "561",
                 "side_b_name": "CHUA TENG JAY",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 19
+                    },
+                    {
+                        "a": 21,
+                        "b": 19
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -7954,15 +7999,24 @@
                 "draw_round": 7,
                 "draw_position": 1,
                 "scheduled_at": "2026-05-14 12:00:00",
-                "time_text": "Thu 5/14/2026 12:00 PM",
-                "side_a_source_player_id": null,
-                "side_a_name": null,
-                "side_b_source_player_id": null,
-                "side_b_name": null,
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "time_text": "12:00 PM",
+                "side_a_source_player_id": "560",
+                "side_a_name": "HOVEN SOON HAW WEN",
+                "side_b_source_player_id": "564",
+                "side_b_name": "JAYDEN LIM ZHEHUI",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 13,
+                        "b": 21
+                    },
+                    {
+                        "a": 17,
+                        "b": 21
+                    }
+                ]
             }
         ],
         "L18": [
@@ -10282,10 +10336,23 @@
                 "side_a_name": "TAN JIAN MIN",
                 "side_b_source_player_id": "732",
                 "side_b_name": "GIM QIAN LONG",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 23
+                    },
+                    {
+                        "a": 21,
+                        "b": 14
+                    },
+                    {
+                        "a": 19,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -10298,10 +10365,19 @@
                 "side_a_name": "TEH ESON",
                 "side_b_source_player_id": "729",
                 "side_b_name": "CURSON CHENG YU YANG",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 11,
+                        "b": 21
+                    },
+                    {
+                        "a": 18,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -10309,15 +10385,24 @@
                 "draw_round": 7,
                 "draw_position": 1,
                 "scheduled_at": "2026-05-14 12:00:00",
-                "time_text": "Thu 5/14/2026 12:00 PM",
-                "side_a_source_player_id": null,
-                "side_a_name": null,
-                "side_b_source_player_id": null,
-                "side_b_name": null,
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "time_text": "12:00 PM",
+                "side_a_source_player_id": "732",
+                "side_a_name": "GIM QIAN LONG",
+                "side_b_source_player_id": "729",
+                "side_b_name": "CURSON CHENG YU YANG",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 12,
+                        "b": 21
+                    },
+                    {
+                        "a": 13,
+                        "b": 21
+                    }
+                ]
             }
         ],
         "P12": [
@@ -11598,10 +11683,23 @@
                 "side_a_name": "MARION ANN MELCYUS",
                 "side_b_source_player_id": "499",
                 "side_b_name": "ELIANNA KOH JIA HUI",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 14,
+                        "b": 21
+                    },
+                    {
+                        "a": 21,
+                        "b": 19
+                    },
+                    {
+                        "a": 17,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -11614,10 +11712,19 @@
                 "side_a_name": "GIYUAN LEE",
                 "side_b_source_player_id": "497",
                 "side_b_name": "JULIANA LEE SHU MEI",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 3,
+                        "b": 21
+                    },
+                    {
+                        "a": 4,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -11625,15 +11732,24 @@
                 "draw_round": 6,
                 "draw_position": 1,
                 "scheduled_at": "2026-05-14 12:00:00",
-                "time_text": "Thu 5/14/2026 12:00 PM",
-                "side_a_source_player_id": null,
-                "side_a_name": null,
-                "side_b_source_player_id": null,
-                "side_b_name": null,
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "time_text": "12:00 PM",
+                "side_a_source_player_id": "499",
+                "side_a_name": "ELIANNA KOH JIA HUI",
+                "side_b_source_player_id": "497",
+                "side_b_name": "JULIANA LEE SHU MEI",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 7,
+                        "b": 21
+                    },
+                    {
+                        "a": 15,
+                        "b": 21
+                    }
+                ]
             }
         ],
         "P15": [
@@ -12863,10 +12979,19 @@
                 "side_a_name": "EMILY TAI HUI MIN",
                 "side_b_source_player_id": "637",
                 "side_b_name": "HONG YING LI",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 6
+                    },
+                    {
+                        "a": 23,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -12879,10 +13004,19 @@
                 "side_a_name": "KOH ZAENN",
                 "side_b_source_player_id": "677",
                 "side_b_name": "NUR AISYAH AQILAH BINTI HADZLI ZUL",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 4
+                    },
+                    {
+                        "a": 21,
+                        "b": 7
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -12890,15 +13024,24 @@
                 "draw_round": 6,
                 "draw_position": 1,
                 "scheduled_at": "2026-05-14 12:00:00",
-                "time_text": "Thu 5/14/2026 12:00 PM",
-                "side_a_source_player_id": null,
-                "side_a_name": null,
-                "side_b_source_player_id": null,
-                "side_b_name": null,
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "time_text": "12:00 PM",
+                "side_a_source_player_id": "632",
+                "side_a_name": "EMILY TAI HUI MIN",
+                "side_b_source_player_id": "635",
+                "side_b_name": "KOH ZAENN",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 14,
+                        "b": 21
+                    },
+                    {
+                        "a": 13,
+                        "b": 21
+                    }
+                ]
             }
         ],
         "P18": [
@@ -14089,10 +14232,19 @@
                 "side_a_name": "QATRUNNADA NAZEEHA BINTI MASLAN",
                 "side_b_source_player_id": "685",
                 "side_b_name": "LEE SHAN YI",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 11
+                    },
+                    {
+                        "a": 21,
+                        "b": 12
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -14105,10 +14257,19 @@
                 "side_a_name": "HONG YING QIAN",
                 "side_b_source_player_id": "684",
                 "side_b_name": "SITI HAWA NAJWA BINTI MOHAMAD SHAH",
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "winner_side": "B",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 11,
+                        "b": 21
+                    },
+                    {
+                        "a": 15,
+                        "b": 21
+                    }
+                ]
             },
             {
                 "source_match_id": null,
@@ -14116,15 +14277,24 @@
                 "draw_round": 6,
                 "draw_position": 1,
                 "scheduled_at": "2026-05-14 12:00:00",
-                "time_text": "Thu 5/14/2026 12:00 PM",
-                "side_a_source_player_id": null,
-                "side_a_name": null,
-                "side_b_source_player_id": null,
-                "side_b_name": null,
-                "winner_side": null,
-                "status": "pending_confirmation",
+                "time_text": "12:00 PM",
+                "side_a_source_player_id": "683",
+                "side_a_name": "QATRUNNADA NAZEEHA BINTI MASLAN",
+                "side_b_source_player_id": "684",
+                "side_b_name": "SITI HAWA NAJWA BINTI MOHAMAD SHAH",
+                "winner_side": "A",
+                "status": "confirmed",
                 "result_note": null,
-                "score": []
+                "score": [
+                    {
+                        "a": 21,
+                        "b": 15
+                    },
+                    {
+                        "a": 21,
+                        "b": 10
+                    }
+                ]
             }
         ]
     }
