@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">{{ $tournament->name }}</h1></x-slot>
-    <div class="mx-auto max-w-6xl px-4 pt-10 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
         @include('organizer.tournaments.partials.nav', ['tournament' => $tournament])
     </div>
 
-    <div class="mx-auto max-w-4xl px-4 pb-10 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
         <section class="rounded-lg bg-white p-6 shadow-lg">
             <div>
                 <p class="text-xs font-black uppercase tracking-[.25em] text-brand-green">Tournament setup</p>

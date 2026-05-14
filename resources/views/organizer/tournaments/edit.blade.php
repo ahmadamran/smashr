@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header"><h1 class="text-3xl font-black text-brand-blue">{{ $tournament->name }}</h1></x-slot>
-    <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         @include('organizer.tournaments.partials.nav', ['tournament' => $tournament])
         @if (session('status')) <div class="mb-6 rounded bg-green-50 p-4 font-bold text-green-800">{{ session('status') }}</div> @endif
 
