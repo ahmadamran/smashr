@@ -196,6 +196,40 @@ class TournamentOrganizerTest extends TestCase
             ->assertDontSee('Filter Registration Boy');
     }
 
+    public function test_organizer_edits_registration_status_and_seed_on_dedicated_page(): void
+    {
+        $organizer = $this->player('Edit Registration Owner');
+        $player = $this->player('Edit Registration Player');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Edit Singles', 'singles');
+        $entrant = $this->entrant($tournament, $category, [$player], 'pending');
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', $tournament))
+            ->assertOk()
+            ->assertSee(route('organizer.tournaments.entrants.edit', [$tournament, $entrant]), false)
+            ->assertSee('Edit')
+            ->assertDontSee('Save</button>', false);
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.entrants.edit', [$tournament, $entrant]))
+            ->assertOk()
+            ->assertSee('Edit Registration Player')
+            ->assertSee('Edit entrant')
+            ->assertSee('Status')
+            ->assertSee('Seed');
+
+        $this->actingAs($organizer)
+            ->patch(route('organizer.tournaments.entrants.update', [$tournament, $entrant]), [
+                'status' => 'approved',
+                'seed' => 3,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('approved', $entrant->fresh()->status);
+        $this->assertSame(3, $entrant->fresh()->seed);
+    }
+
     public function test_public_players_tabs_show_seeded_and_confirmed_winners(): void
     {
         $organizer = $this->player('Tabs Owner');

@@ -674,6 +674,38 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->route('organizer.tournaments.registrations', $tournament)->with('status', 'Entrant added.');
         })->name('entrants.store');
 
+        Route::get('{tournament:slug}/entrants/{entrant}/edit', function (Tournament $tournament, TournamentEntrant $entrant) {
+            abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
+            abort_unless($entrant->tournament_id === $tournament->id, 404);
+
+            $entrant->load('category', 'players.user.playerProfile');
+            $format = $entrant->category?->format ?? 'singles';
+            $ratingColumn = $format.'_rating';
+            $matchesColumn = $format.'_matches';
+            $playerRankings = $entrant->players
+                ->filter(fn (TournamentEntrantPlayer $player) => filled($player->user_id) && $player->user?->playerProfile)
+                ->mapWithKeys(function (TournamentEntrantPlayer $player) use ($ratingColumn, $matchesColumn) {
+                    $profile = $player->user->playerProfile;
+                    $matches = (int) $profile->{$matchesColumn};
+
+                    return [$player->id => [
+                        'rank' => $matches > 0
+                            ? PlayerProfile::where($matchesColumn, '>', 0)->where($ratingColumn, '>', $profile->{$ratingColumn})->count() + 1
+                            : null,
+                        'rating' => $profile->{$ratingColumn},
+                        'matches' => $matches,
+                        'points' => (int) $profile->smashr_points,
+                    ]];
+                });
+
+            return view('organizer.tournaments.entrants-edit', [
+                'tournament' => $tournament,
+                'entrant' => $entrant,
+                'playerRankings' => $playerRankings,
+                'returnUrl' => request('return_url'),
+            ]);
+        })->name('entrants.edit');
+
         Route::patch('{tournament:slug}/entrants/{entrant}', function (Tournament $tournament, TournamentEntrant $entrant) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
             abort_unless($entrant->tournament_id === $tournament->id, 404);

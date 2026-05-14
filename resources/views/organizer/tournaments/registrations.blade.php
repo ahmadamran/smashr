@@ -87,17 +87,18 @@
                     <h2 class="text-2xl font-black text-brand-blue">{{ $category->name }}</h2>
                     <div class="mt-5 grid gap-3">
                         @forelse ($category->entrants as $entrant)
-                            <form method="POST" action="{{ route('organizer.tournaments.entrants.update', [$tournament, $entrant]) }}" class="grid items-center gap-3 rounded-md border border-brand-ink/10 p-4 md:grid-cols-5">@csrf @method('PATCH')
-                                <div class="md:col-span-2">
+                            <article class="flex flex-col gap-4 rounded-md border border-brand-ink/10 p-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0 flex-1">
                                     <p class="font-black text-brand-blue">{{ $entrant->displayName() ?: 'Unnamed entrant' }}</p>
                                     <p class="text-xs font-bold uppercase text-brand-ink/40">
                                         {{ $entrant->created_at->format('M j, Y') }}
+                                        <span class="ml-2 rounded-full bg-brand-surface px-2 py-1 text-brand-blue">{{ $entrant->status }}</span>
                                         @if ($entrant->seed)
                                             <span class="ml-2 rounded-full bg-brand-surface px-2 py-1 text-brand-blue">Seed {{ $entrant->seed }}</span>
                                         @endif
                                     </p>
                                     @if ($entrant->players->isNotEmpty())
-                                        <div class="mt-3 grid gap-2">
+                                        <div class="mt-3 space-y-2">
                                             @foreach ($entrant->players as $player)
                                                 @php
                                                     $ranking = $player->user_id ? data_get($rankingByUserAndFormat, "{$category->format}.{$player->user_id}") : null;
@@ -135,14 +136,8 @@
                                         </div>
                                     @endif
                                 </div>
-                                <select name="status" class="rounded-md border-gray-300">
-                                    @foreach (['pending','approved','rejected','withdrawn'] as $status)
-                                        <option value="{{ $status }}" @selected($entrant->status === $status)>{{ $status }}</option>
-                                    @endforeach
-                                </select>
-                                <input name="seed" type="number" min="1" value="{{ $entrant->seed }}" placeholder="Seed" class="rounded-md border-gray-300">
-                                <button class="rounded-md border border-brand-ink/10 px-4 py-2 text-sm font-black uppercase text-brand-blue">Save</button>
-                            </form>
+                                <a href="{{ route('organizer.tournaments.entrants.edit', [$tournament, $entrant, 'return_url' => request()->fullUrl()]) }}" class="shrink-0 rounded-md border border-brand-ink/10 px-4 py-2 text-center text-sm font-black uppercase text-brand-blue">Edit</a>
+                            </article>
                         @empty
                             <p class="text-brand-ink/60">No registrations yet.</p>
                         @endforelse
