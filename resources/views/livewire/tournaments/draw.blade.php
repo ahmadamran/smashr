@@ -18,6 +18,14 @@ new class extends Component
 
     public string $search = '';
 
+    protected ?Tournament $tournamentCache = null;
+
+    protected ?TournamentCategory $categoryCache = null;
+
+    protected ?Collection $approvedEntrantsCache = null;
+
+    protected array $bracketRoundsCache = [];
+
     public function mount(Tournament $tournament, TournamentCategory $category): void
     {
         $this->tournamentId = $tournament->id;
@@ -26,18 +34,22 @@ new class extends Component
 
     public function tournament(): Tournament
     {
-        return Tournament::with('club', 'organizer', 'categories')->findOrFail($this->tournamentId);
+        return $this->tournamentCache ??= Tournament::with([
+            'club',
+            'organizer',
+            'categories' => fn ($query) => $query->orderBy('name'),
+        ])->findOrFail($this->tournamentId);
     }
 
     public function category(): TournamentCategory
     {
-        return TournamentCategory::with('entrants.players.user.playerProfile', 'matches.players.user.playerProfile')
+        return $this->categoryCache ??= TournamentCategory::with('entrants.players.user.playerProfile', 'matches.players.user.playerProfile')
             ->findOrFail($this->categoryId);
     }
 
     public function approvedEntrants(): Collection
     {
-        return $this->category()->entrants
+        return $this->approvedEntrantsCache ??= $this->category()->entrants
             ->where('status', 'approved')
             ->sortBy(fn (TournamentEntrant $entrant) => $entrant->draw_position ?? 9999)
             ->values();
@@ -66,8 +78,51 @@ new class extends Component
         return (int) log($this->drawSize(), 2);
     }
 
-    public function bracketRounds(): array
+    public function displayMode(): string
     {
+        if ($this->category()->draw_mode === 'round_robin' || $this->normalizedSearch() !== '') {
+            return 'full';
+        }
+
+        if (request('view') === 'full') {
+            return 'full';
+        }
+
+        return $this->drawSize() >= 64 ? 'round' : 'full';
+    }
+
+    public function selectedRoundNumber(): int
+    {
+        $round = (int) request('round');
+
+        if ($round > 0) {
+            return max(1, min($round, $this->roundCount()));
+        }
+
+        return $this->activeRoundNumber();
+    }
+
+    public function activeRoundNumber(): int
+    {
+        $activeRound = $this->category()->matches
+            ->filter(fn (MatchRecord $match) => filled($match->draw_round) && (
+                $match->scheduled_at
+                || in_array($match->status, ['pending_confirmation', 'confirmed', 'disputed'], true)
+                || in_array($match->live_status, ['live', 'submitted', 'approved'], true)
+            ))
+            ->max('draw_round');
+
+        return max(1, min((int) ($activeRound ?: 1), $this->roundCount()));
+    }
+
+    public function bracketRounds(?int $onlyRound = null): array
+    {
+        $cacheKey = $onlyRound ?: 'all';
+
+        if (array_key_exists($cacheKey, $this->bracketRoundsCache)) {
+            return $this->bracketRoundsCache[$cacheKey];
+        }
+
         $approvedEntrants = $this->approvedEntrants();
         $entrantByPosition = $approvedEntrants->filter(fn ($entrant) => filled($entrant->draw_position))->keyBy('draw_position');
         $matchesByRound = $this->category()->matches
@@ -138,14 +193,16 @@ new class extends Component
                 ];
             }
 
-            $bracketRounds[] = [
-                'number' => $round,
-                'title' => $this->roundTitle($round),
-                'matches' => $roundMatches,
-            ];
+            if ($onlyRound === null || $onlyRound === $round) {
+                $bracketRounds[] = [
+                    'number' => $round,
+                    'title' => $this->roundTitle($round),
+                    'matches' => $roundMatches,
+                ];
+            }
         }
 
-        return $bracketRounds;
+        return $this->bracketRoundsCache[$cacheKey] = $bracketRounds;
     }
 
     public function hasBracketSearchResults(): bool
@@ -176,7 +233,7 @@ new class extends Component
         return $games->map(fn ($game) => ((int) $game['a']).'-'.((int) $game['b']))->join(', ');
     }
 
-    private function roundTitle(int $roundNumber): string
+    public function roundTitle(int $roundNumber): string
     {
         $roundCount = $this->roundCount();
         $drawSize = $this->drawSize();
@@ -273,7 +330,9 @@ new class extends Component
         $filteredEntrants = $this->filteredEntrants();
         $drawSize = $this->drawSize();
         $roundCount = $this->roundCount();
-        $bracketRounds = $this->bracketRounds();
+        $displayMode = $this->displayMode();
+        $selectedRound = $this->selectedRoundNumber();
+        $bracketRounds = $this->bracketRounds($displayMode === 'round' ? $selectedRound : null);
     @endphp
 
     @include('tournaments.partials.nav', ['tournament' => $tournament, 'category' => $category])
@@ -341,11 +400,72 @@ new class extends Component
                 <div>
                     <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Main draw</p>
                     <h2 class="text-2xl font-black text-brand-blue">{{ $drawSize }} draw | {{ $roundCount }} rounds</h2>
+                    @if ($displayMode === 'round')
+                        <p class="mt-1 text-sm font-bold text-brand-ink/55">Showing {{ $this->roundTitle($selectedRound) }} for a faster large-draw view.</p>
+                    @endif
                 </div>
-                <a href="{{ route('tournaments.matches', $tournament, ['date' => request('date')]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Matches</a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('tournaments.matches', $tournament, ['date' => request('date')]) }}" class="rounded-full bg-brand-blue px-4 py-2 text-xs font-black uppercase text-white">Matches</a>
+                    @if ($displayMode === 'round')
+                        <a href="{{ route('tournaments.draw', [$tournament, $category, 'view' => 'full']) }}" class="rounded-full border border-brand-ink/10 px-4 py-2 text-xs font-black uppercase text-brand-blue">Full draw</a>
+                    @elseif ($drawSize >= 64)
+                        <a href="{{ route('tournaments.draw', [$tournament, $category, 'round' => $this->activeRoundNumber()]) }}" class="rounded-full border border-brand-ink/10 px-4 py-2 text-xs font-black uppercase text-brand-blue">Round focus</a>
+                    @endif
+                </div>
             </div>
 
-            <div class="mt-5 overflow-x-auto pb-3">
+            @if ($drawSize >= 64)
+                <div class="mt-4 overflow-x-auto">
+                    <div class="flex min-w-max gap-2">
+                        @for ($round = 1; $round <= $roundCount; $round++)
+                            <a href="{{ route('tournaments.draw', [$tournament, $category, 'round' => $round]) }}" class="rounded-full px-4 py-2 text-xs font-black uppercase {{ $displayMode === 'round' && $selectedRound === $round ? 'bg-brand-blue text-white' : 'bg-brand-surface text-brand-blue' }}">
+                                {{ $this->roundTitle($round) }}
+                            </a>
+                        @endfor
+                    </div>
+                </div>
+            @endif
+
+            @if ($displayMode === 'round')
+                <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach (($bracketRounds[0]['matches'] ?? []) as $drawMatch)
+                        @continue($this->search !== '' && ! $drawMatch['matches_search'])
+                        <article class="rounded-md border border-brand-ink/10 bg-brand-surface p-3">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-[11px] font-black uppercase tracking-[.16em] text-brand-ink/45">Match {{ $drawMatch['position'] }}</p>
+                                @if ($drawMatch['match']?->scheduled_at || $drawMatch['match']?->court_label)
+                                    <p class="text-[11px] font-black uppercase text-brand-green">
+                                        {{ $drawMatch['match']?->scheduled_at?->format('g:i A') }}
+                                        {{ $drawMatch['match']?->court_label ? ' | '.$drawMatch['match']->court_label : '' }}
+                                    </p>
+                                @endif
+                            </div>
+
+                            <div class="mt-3 divide-y divide-brand-ink/10 overflow-hidden rounded-md border border-brand-ink/10 bg-white">
+                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'A' ? 'bg-brand-blue' : '' }}">
+                                    <p class="text-sm font-black {{ $drawMatch['winner_side'] === 'A' ? 'text-white' : 'text-brand-blue' }}">{{ $drawMatch['side_a'] }}</p>
+                                    @if ($drawMatch['winner_side'] === 'A')
+                                        <span class="text-xs font-black uppercase text-white">Won</span>
+                                    @endif
+                                </div>
+                                <div class="flex min-h-12 items-center justify-between gap-3 px-3 py-2 {{ $drawMatch['winner_side'] === 'B' ? 'bg-brand-blue' : '' }}">
+                                    <p class="text-sm font-black {{ $drawMatch['winner_side'] === 'B' ? 'text-white' : 'text-brand-blue' }}">{{ $drawMatch['side_b'] }}</p>
+                                    @if ($drawMatch['winner_side'] === 'B')
+                                        <span class="text-xs font-black uppercase text-white">Won</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            @if ($drawMatch['score'])
+                                <p class="mt-2 text-xs font-bold text-brand-ink/60">{{ $drawMatch['score'] }}</p>
+                            @elseif ($drawMatch['note'])
+                                <p class="mt-2 text-xs font-bold text-brand-ink/45">{{ $drawMatch['note'] }}</p>
+                            @endif
+                        </article>
+                    @endforeach
+                </div>
+            @else
+                <div class="mt-5 overflow-x-auto pb-3">
                 <div class="grid min-w-max auto-cols-[280px] grid-flow-col gap-5">
                     @foreach ($bracketRounds as $roundIndex => $round)
                         <div>
@@ -409,7 +529,8 @@ new class extends Component
                         </div>
                     @endforeach
                 </div>
-            </div>
+                </div>
+            @endif
         </section>
     @endif
 </div>

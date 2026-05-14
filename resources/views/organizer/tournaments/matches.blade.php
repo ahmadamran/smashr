@@ -7,17 +7,66 @@
             <div class="mb-6 rounded bg-red-50 p-4 font-bold text-red-800">{{ $errors->first() }}</div>
         @endif
 
+        <section class="mb-6 rounded-lg bg-white p-5 shadow-lg">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <form class="grid flex-1 gap-3 md:grid-cols-[minmax(14rem,1fr)_auto_auto]">
+                    @if ($selectedDate)
+                        <input type="hidden" name="date" value="{{ $selectedDate }}">
+                    @endif
+                    <label class="text-xs font-black uppercase tracking-[.18em] text-brand-green">
+                        Search
+                        <input name="search" value="{{ request('search') }}" placeholder="Search player or school" class="mt-2 w-full rounded-md border-brand-ink/10 text-sm font-bold normal-case tracking-normal text-brand-ink">
+                    </label>
+                    <div class="flex items-end">
+                        <button class="w-full rounded-md bg-brand-blue px-4 py-3 text-xs font-black uppercase text-white">Filter</button>
+                    </div>
+                    @if (request()->hasAny(['search', 'date']))
+                        <div class="flex items-end">
+                            <a href="{{ route('organizer.tournaments.matches', $tournament) }}" class="w-full rounded-md border border-brand-ink/10 px-4 py-3 text-center text-xs font-black uppercase text-brand-blue">Clear</a>
+                        </div>
+                    @endif
+                </form>
+                <div class="text-sm font-bold text-brand-ink/60">
+                    {{ $matches->count() }} {{ \Illuminate\Support\Str::plural('match', $matches->count()) }}
+                </div>
+            </div>
+
+            @if ($matchDates->isNotEmpty())
+                <div class="mt-5 overflow-x-auto">
+                    <div class="flex min-w-max gap-2">
+                        <a href="{{ route('organizer.tournaments.matches', ['tournament' => $tournament, 'search' => request('search')]) }}" class="rounded-md border px-4 py-3 text-left {{ $selectedDate === null ? 'border-brand-blue bg-brand-blue text-white' : 'border-brand-ink/10 bg-brand-surface text-brand-blue hover:bg-brand-mist' }}">
+                            <span class="block text-[11px] font-black uppercase tracking-[.16em] {{ $selectedDate === null ? 'text-brand-mist' : 'text-brand-green' }}">All</span>
+                            <span class="mt-1 block text-sm font-black">Dates</span>
+                        </a>
+                        @foreach ($matchDates as $matchDate)
+                            <a href="{{ route('organizer.tournaments.matches', ['tournament' => $tournament, 'date' => $matchDate, 'search' => request('search')]) }}" class="rounded-md border px-4 py-3 text-left {{ $selectedDate === $matchDate ? 'border-brand-blue bg-brand-blue text-white' : 'border-brand-ink/10 bg-brand-surface text-brand-blue hover:bg-brand-mist' }}">
+                                <span class="block text-[11px] font-black uppercase tracking-[.16em] {{ $selectedDate === $matchDate ? 'text-brand-mist' : 'text-brand-green' }}">{{ \Illuminate\Support\Carbon::parse($matchDate)->format('D') }}</span>
+                                <span class="mt-1 block text-sm font-black">{{ \Illuminate\Support\Carbon::parse($matchDate)->format('M j') }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        </section>
+
         <div class="grid gap-4">
-            @forelse ($matches as $match)
-                @php
-                    $sideA = $match->players->where('side', 'A')->sortBy('position')->map(fn ($p) => $p->user->playerProfile?->display_name ?? $p->user->name)->join(' / ') ?: 'TBA';
-                    $sideB = $match->players->where('side', 'B')->sortBy('position')->map(fn ($p) => $p->user->playerProfile?->display_name ?? $p->user->name)->join(' / ') ?: 'TBA';
-                    $games = collect($match->score ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))->values();
-                    $liveScore = $match->live_score ?? [];
-                    $liveGames = collect($liveScore['games'] ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))->values();
-                    $current = $liveScore['current'] ?? ['a' => 0, 'b' => 0];
-                @endphp
-                <article class="rounded-lg bg-white p-5 shadow-lg">
+            @forelse ($groupedMatches as $matchDate => $dateMatches)
+                <section class="grid gap-4">
+                    <div class="sticky top-0 z-10 rounded-lg border border-brand-ink/10 bg-brand-surface/95 px-5 py-3 backdrop-blur">
+                        <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">{{ $matchDate === 'unscheduled' ? 'Date TBA' : \Illuminate\Support\Carbon::parse($matchDate)->format('l') }}</p>
+                        <h2 class="text-2xl font-black text-brand-blue">{{ $matchDate === 'unscheduled' ? 'Unscheduled matches' : \Illuminate\Support\Carbon::parse($matchDate)->format('M j, Y') }}</h2>
+                    </div>
+
+                    @foreach ($dateMatches as $match)
+                        @php
+                            $sideA = $match->players->where('side', 'A')->sortBy('position')->map(fn ($p) => $p->user->playerProfile?->display_name ?? $p->user->name)->join(' / ') ?: 'TBA';
+                            $sideB = $match->players->where('side', 'B')->sortBy('position')->map(fn ($p) => $p->user->playerProfile?->display_name ?? $p->user->name)->join(' / ') ?: 'TBA';
+                            $games = collect($match->score ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))->values();
+                            $liveScore = $match->live_score ?? [];
+                            $liveGames = collect($liveScore['games'] ?? [])->filter(fn ($game) => array_key_exists('a', $game) && array_key_exists('b', $game))->values();
+                            $current = $liveScore['current'] ?? ['a' => 0, 'b' => 0];
+                        @endphp
+                        <article class="rounded-lg bg-white p-5 shadow-lg">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">{{ $match->tournamentCategory?->name ?? 'Tournament match' }} | {{ str_replace('_', ' ', $match->status) }}</p>
@@ -139,14 +188,15 @@
                             </div>
                         </form>
                     @endif
-                </article>
+                        </article>
+                    @endforeach
+                </section>
             @empty
                 <div class="rounded-lg bg-white p-8 shadow-lg">
-                    <h2 class="text-xl font-black text-brand-blue">No matches yet</h2>
-                    <p class="mt-2 text-brand-ink/60">Generate a draw to create tournament matches.</p>
+                    <h2 class="text-xl font-black text-brand-blue">{{ request()->hasAny(['search', 'date']) ? 'No matches found' : 'No matches yet' }}</h2>
+                    <p class="mt-2 text-brand-ink/60">{{ request()->hasAny(['search', 'date']) ? 'Try another player, school, or match date.' : 'Generate a draw to create tournament matches.' }}</p>
                 </div>
             @endforelse
         </div>
-        <div class="mt-8">{{ $matches->links('pagination.smashr') }}</div>
     </div>
 </x-app-layout>

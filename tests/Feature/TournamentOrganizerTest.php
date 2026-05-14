@@ -132,6 +132,70 @@ class TournamentOrganizerTest extends TestCase
         $this->assertSame(1, $entrant->fresh()->players()->count());
     }
 
+    public function test_organizer_registrations_show_smashr_ranking_for_category_format(): void
+    {
+        $organizer = $this->player('Ranking Owner');
+        $player = $this->player('Ranked Entrant');
+        $higherRated = $this->player('Higher Ranked Player');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Ranking Singles', 'singles');
+
+        $player->playerProfile->forceFill([
+            'smashr_points' => 80,
+            'singles_rating' => 3.765,
+            'singles_matches' => 4,
+        ])->save();
+        $higherRated->playerProfile->forceFill([
+            'singles_rating' => 3.900,
+            'singles_matches' => 2,
+        ])->save();
+        $this->entrant($tournament, $category, [$player], 'pending');
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', $tournament))
+            ->assertOk()
+            ->assertSee('Singles Smashr ranking')
+            ->assertSee('#2')
+            ->assertSee('Rating 3.765')
+            ->assertSee('4 matches')
+            ->assertSee('80 points');
+    }
+
+    public function test_organizer_registrations_can_filter_like_public_players_page(): void
+    {
+        $organizer = $this->player('Filter Registration Owner');
+        $boy = $this->player('Filter Registration Boy', 'male');
+        $girl = $this->player('Filter Registration Girl', 'female');
+        $tournament = $this->tournament($organizer);
+        $boysCategory = $this->category($tournament, 'Boys Under 12', 'singles');
+        $girlsCategory = $this->category($tournament, 'Girls Under 12', 'singles');
+
+        $this->entrant($tournament, $boysCategory, [$boy], 'pending', null, ['Alpha School']);
+        $this->entrant($tournament, $girlsCategory, [$girl], 'pending', null, ['Beta School']);
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', $tournament))
+            ->assertOk()
+            ->assertSee('Search players or school')
+            ->assertSee('All genders')
+            ->assertSee('Boys Under 12')
+            ->assertSee('Girls Under 12')
+            ->assertSee('Players')
+            ->assertSee('Entrants');
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', ['tournament' => $tournament, 'search' => 'Alpha School']))
+            ->assertOk()
+            ->assertSee('Filter Registration Boy')
+            ->assertDontSee('Filter Registration Girl');
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.registrations', ['tournament' => $tournament, 'gender' => 'female', 'category' => $girlsCategory->id]))
+            ->assertOk()
+            ->assertSee('Filter Registration Girl')
+            ->assertDontSee('Filter Registration Boy');
+    }
+
     public function test_public_players_tabs_show_seeded_and_confirmed_winners(): void
     {
         $organizer = $this->player('Tabs Owner');
@@ -481,6 +545,55 @@ class TournamentOrganizerTest extends TestCase
             ->assertSee('Score sheet');
     }
 
+    public function test_organizer_match_controls_can_search_and_group_by_date(): void
+    {
+        $organizer = $this->player('Organizer Match Filter Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Organizer Filter Singles', 'singles');
+        $alpha = $this->player('Organizer Filter Alpha');
+        $beta = $this->player('Organizer Filter Beta');
+        $gamma = $this->player('Organizer Filter Gamma');
+        $delta = $this->player('Organizer Filter Delta');
+
+        $this->entrant($tournament, $category, [$alpha], 'approved', 1, ['Alpha School']);
+        $this->entrant($tournament, $category, [$beta], 'approved', 2, ['Beta Academy']);
+        $this->entrant($tournament, $category, [$gamma], 'approved', 3, ['Gamma Institute']);
+        $this->entrant($tournament, $category, [$delta], 'approved', 4, ['Delta College']);
+
+        $this->actingAs($organizer)->post(route('organizer.tournaments.draws.generate', [$tournament, $category]));
+
+        $firstMatch = $category->matches()->orderBy('id')->firstOrFail();
+        $firstDate = now()->toDateString();
+        $laterDate = now()->addDay()->toDateString();
+
+        $category->matches()->get()->each(function (MatchRecord $match) use ($firstMatch, $firstDate, $laterDate) {
+            $date = $match->is($firstMatch) ? $firstDate : $laterDate;
+
+            $match->forceFill([
+                'played_at' => $date,
+                'scheduled_at' => Carbon::parse($date.' 09:00:00'),
+            ])->save();
+        });
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.matches', $tournament))
+            ->assertOk()
+            ->assertSee(Carbon::parse($firstDate)->format('M j, Y'))
+            ->assertSee(Carbon::parse($laterDate)->format('M j, Y'));
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.matches', ['tournament' => $tournament, 'date' => $firstDate]))
+            ->assertOk()
+            ->assertSee(Carbon::parse($firstDate)->format('M j, Y'))
+            ->assertDontSee(Carbon::parse($laterDate)->format('M j, Y'));
+
+        $this->actingAs($organizer)
+            ->get(route('organizer.tournaments.matches', ['tournament' => $tournament, 'search' => 'Alpha School']))
+            ->assertOk()
+            ->assertSee('Organizer Filter Alpha')
+            ->assertDontSee('Organizer Filter Gamma');
+    }
+
     public function test_scoresheet_tracks_live_points_and_submits_for_organizer_review(): void
     {
         $organizer = $this->player('Live Sheet Owner');
@@ -774,6 +887,31 @@ class TournamentOrganizerTest extends TestCase
             ->assertDontSee('Filter date');
     }
 
+    public function test_large_public_draw_defaults_to_round_focus_view(): void
+    {
+        $organizer = $this->player('Large Draw Owner');
+        $tournament = $this->tournament($organizer);
+        $category = $this->category($tournament, 'Large Singles', 'singles');
+
+        foreach (range(1, 64) as $seed) {
+            $this->entrant($tournament, $category, [$this->player('Large Draw Player '.$seed)], 'approved', $seed);
+        }
+
+        app(TournamentDrawService::class)->generate($category);
+
+        $this->get(route('tournaments.draw', [$tournament, $category]))
+            ->assertOk()
+            ->assertSee('Showing Round of 64')
+            ->assertSee('Full draw')
+            ->assertSee('Round of 64')
+            ->assertSee('Match 32');
+
+        $this->get(route('tournaments.draw', ['tournament' => $tournament, 'category' => $category, 'view' => 'full']))
+            ->assertOk()
+            ->assertSee('Round focus')
+            ->assertSee('Final');
+    }
+
     public function test_tournament_overview_signals_live_matches_without_live_nav_item(): void
     {
         $organizer = $this->player('Overview Live Owner');
@@ -819,21 +957,26 @@ class TournamentOrganizerTest extends TestCase
             ->assertDontSee('Hidden Player');
 
         Livewire::test('tournaments.players', ['tournament' => $tournament])
+            ->assertSeeInOrder(['Players', '3', 'Entrants', '3', 'Categories', '2'])
             ->assertSee('Alpha Player')
             ->assertSee('Beta Player')
             ->assertDontSee('Hidden Player')
             ->set('search', 'Alpha School')
+            ->assertSeeInOrder(['Players', '1', 'Entrants', '2', 'Categories', '2'])
             ->assertSee('Alpha Player')
             ->assertDontSee('Beta Player')
             ->set('search', 'beta academy')
+            ->assertSeeInOrder(['Players', '1', 'Entrants', '1', 'Categories', '1'])
             ->assertSee('Beta Player')
             ->assertDontSee('Alpha Player')
             ->set('search', '')
             ->set('gender', 'female')
+            ->assertSeeInOrder(['Players', '1', 'Entrants', '1', 'Categories', '1'])
             ->assertSee('Beta Player')
             ->assertDontSee('Alpha Player')
             ->set('gender', '')
             ->set('category', (string) $doubles->id)
+            ->assertSeeInOrder(['Players', '2', 'Entrants', '1', 'Categories', '1'])
             ->assertSee('Youth Doubles')
             ->assertSee('Alpha Player')
             ->assertDontSee('Beta Player');

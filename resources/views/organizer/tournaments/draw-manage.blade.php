@@ -117,16 +117,32 @@
         </form>
 
         @if ($preview)
+            @php
+                $previewMatches = collect($preview['matches']);
+                $visiblePreviewMatches = $previewMatches->take(48);
+                $hiddenPreviewCount = max(0, $previewMatches->count() - $visiblePreviewMatches->count());
+                $previewSummary = $previewMatches
+                    ->groupBy(fn ($match) => trim(($match['stage'] ?? 'draw').' | '.($match['round_label'] ?? 'round')))
+                    ->map->count();
+            @endphp
             <section class="mt-8 rounded-lg bg-white p-6 shadow-lg">
                 <p class="text-xs font-black uppercase tracking-[.2em] text-brand-green">Tournament control</p>
                 <h2 class="mt-1 text-2xl font-black text-brand-blue">Preview generated draw</h2>
+                <p class="mt-2 text-sm font-bold text-brand-ink/60">{{ $previewMatches->count() }} matches prepared. Showing the first {{ $visiblePreviewMatches->count() }} to keep this page fast.</p>
                 @if (! empty($preview['warnings']))
                     <div class="mt-4 rounded-md bg-amber-50 p-4 text-sm font-bold text-amber-900">
                         {{ implode(' ', $preview['warnings']) }}
                     </div>
                 @endif
+                @if ($previewSummary->isNotEmpty())
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        @foreach ($previewSummary as $label => $count)
+                            <span class="rounded-full bg-brand-surface px-3 py-1 text-xs font-black uppercase text-brand-blue">{{ $label }}: {{ $count }}</span>
+                        @endforeach
+                    </div>
+                @endif
                 <div class="mt-5 grid gap-3 md:grid-cols-2">
-                    @foreach ($preview['matches'] as $match)
+                    @foreach ($visiblePreviewMatches as $match)
                         <article class="rounded-md border border-brand-ink/10 p-4">
                             <p class="text-xs font-black uppercase text-brand-green">{{ $match['stage'] }} | {{ $match['round_label'] }} | Match {{ $match['position'] }}</p>
                             <p class="mt-2 font-black text-brand-blue">{{ $match['side_a']?->displayName() ?? ($match['feed_rule'] ?: 'TBA') }}</p>
@@ -135,6 +151,11 @@
                         </article>
                     @endforeach
                 </div>
+                @if ($hiddenPreviewCount > 0)
+                    <div class="mt-4 rounded-md bg-brand-surface p-4 text-sm font-bold text-brand-ink/60">
+                        {{ $hiddenPreviewCount }} more preview matches are hidden here. Generation still uses the full draw.
+                    </div>
+                @endif
 
                 <form method="POST" action="{{ route('organizer.tournaments.draws.generate-engine', [$tournament, $selectedEvent]) }}" class="mt-6 rounded-md bg-brand-surface p-4">
                     @csrf

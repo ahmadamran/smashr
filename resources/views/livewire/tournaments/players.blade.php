@@ -110,6 +110,25 @@ new class extends Component
             ->groupBy(fn (TournamentEntrant $entrant) => $entrant->category?->id ?? 0);
     }
 
+    public function filteredPlayerCount(): int
+    {
+        return $this->filteredEntrants()
+            ->flatMap(fn (TournamentEntrant $entrant) => $entrant->players)
+            ->filter(fn (TournamentEntrantPlayer $player) => $this->playerMatchesGender($player))
+            ->filter(fn (TournamentEntrantPlayer $player) => $this->playerMatchesSearch($player))
+            ->unique(fn (TournamentEntrantPlayer $player) => $this->playerKey($player))
+            ->count();
+    }
+
+    public function filteredCategoryCount(): int
+    {
+        return $this->filteredEntrants()
+            ->pluck('tournament_category_id')
+            ->filter()
+            ->unique()
+            ->count();
+    }
+
     public function categoryOptions(): Collection
     {
         return $this->tournament()
@@ -200,17 +219,15 @@ new class extends Component
     @php
         $tournament = $this->tournament();
         $categoryOptions = $this->categoryOptions();
-        $approvedEntrants = $this->approvedEntrants();
+        $filteredEntrants = $this->filteredEntrants();
         $directoryRows = $this->directoryRows();
         $entrantsByCategory = $this->entrantsByCategory();
         $seededByCategory = $this->seededByCategory();
         $hasSeeded = $seededByCategory->flatten(1)->isNotEmpty();
         $activeTab = request('tab') === 'seeded' ? 'seeded' : 'all';
         $activeTab = $activeTab === 'seeded' && ! $hasSeeded ? 'all' : $activeTab;
-        $approvedPlayerCount = $approvedEntrants
-            ->flatMap(fn ($entrant) => $entrant->players)
-            ->unique(fn ($player) => $player->user_id ? 'user:'.$player->user_id : 'guest:'.Str::lower($player->displayName()).'|'.Str::lower((string) $player->school_name))
-            ->count();
+        $filteredPlayerCount = $this->filteredPlayerCount();
+        $filteredCategoryCount = $this->filteredCategoryCount();
     @endphp
 
     @include('tournaments.partials.nav', ['tournament' => $tournament])
@@ -257,15 +274,15 @@ new class extends Component
     <section class="mb-6 grid gap-4 md:grid-cols-3">
         <div class="rounded-lg bg-white p-5 shadow-lg">
             <p class="text-xs font-black uppercase tracking-[.18em] text-brand-green">Players</p>
-            <p class="mt-2 text-3xl font-black text-brand-blue">{{ $approvedPlayerCount }}</p>
+            <p class="mt-2 text-3xl font-black text-brand-blue">{{ $filteredPlayerCount }}</p>
         </div>
         <div class="rounded-lg bg-white p-5 shadow-lg">
             <p class="text-xs font-black uppercase tracking-[.18em] text-brand-green">Entrants</p>
-            <p class="mt-2 text-3xl font-black text-brand-blue">{{ $approvedEntrants->count() }}</p>
+            <p class="mt-2 text-3xl font-black text-brand-blue">{{ $filteredEntrants->count() }}</p>
         </div>
         <div class="rounded-lg bg-white p-5 shadow-lg">
             <p class="text-xs font-black uppercase tracking-[.18em] text-brand-green">Categories</p>
-            <p class="mt-2 text-3xl font-black text-brand-blue">{{ $tournament->categories->count() }}</p>
+            <p class="mt-2 text-3xl font-black text-brand-blue">{{ $filteredCategoryCount }}</p>
         </div>
     </section>
 

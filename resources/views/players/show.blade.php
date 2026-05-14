@@ -7,9 +7,12 @@
         ->limit(10)
         ->get();
 
-    $singlesIsRated = $player->singles_matches > 0;
-    $doublesIsRated = $player->doubles_matches > 0;
-    $mixedIsRated = $player->mixed_matches > 0;
+    $singlesMatches = (int) ($player->singles_matches ?? 0);
+    $doublesMatches = (int) ($player->doubles_matches ?? 0);
+    $mixedMatches = (int) ($player->mixed_matches ?? 0);
+    $singlesIsRated = $singlesMatches > 0;
+    $doublesIsRated = $doublesMatches > 0;
+    $mixedIsRated = $mixedMatches > 0;
 @endphp
 
 <x-app-layout>
@@ -31,20 +34,20 @@
             <p class="text-white/70">{{ $player->user->clubs->pluck('name')->join(', ') ?: 'Independent player' }}</p>
         </section>
         <section class="grid gap-6 md:grid-cols-3 lg:col-span-2">
-            <div class="rounded-lg bg-white p-8 shadow-lg">
+            <div class="min-w-0 rounded-lg bg-white p-6 shadow-lg sm:p-8">
                 <p class="text-xs font-black uppercase text-brand-green">Singles rating</p>
-                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $singlesIsRated ? $player->singles_rating : 'Unrated' }}</p>
-                <p class="mt-2 text-brand-ink/60">{{ $player->singles_matches }} confirmed matches</p>
+                <p class="mt-3 whitespace-nowrap text-[clamp(2rem,4.2vw,3.2rem)] font-black leading-none text-brand-blue">{{ $singlesIsRated ? $player->singles_rating : 'Unrated' }}</p>
+                <p class="mt-2 text-brand-ink/60">{{ $singlesMatches }} confirmed matches</p>
             </div>
-            <div class="rounded-lg bg-white p-8 shadow-lg">
+            <div class="min-w-0 rounded-lg bg-white p-6 shadow-lg sm:p-8">
                 <p class="text-xs font-black uppercase text-brand-green">Doubles rating</p>
-                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $doublesIsRated ? $player->doubles_rating : 'Unrated' }}</p>
-                <p class="mt-2 text-brand-ink/60">{{ $player->doubles_matches }} confirmed matches</p>
+                <p class="mt-3 whitespace-nowrap text-[clamp(2rem,4.2vw,3.2rem)] font-black leading-none text-brand-blue">{{ $doublesIsRated ? $player->doubles_rating : 'Unrated' }}</p>
+                <p class="mt-2 text-brand-ink/60">{{ $doublesMatches }} confirmed matches</p>
             </div>
-            <div class="rounded-lg bg-white p-8 shadow-lg">
+            <div class="min-w-0 rounded-lg bg-white p-6 shadow-lg sm:p-8">
                 <p class="text-xs font-black uppercase text-brand-green">Mixed rating</p>
-                <p class="mt-3 text-6xl font-black text-brand-blue">{{ $mixedIsRated ? $player->mixed_rating : 'Unrated' }}</p>
-                <p class="mt-2 text-brand-ink/60">{{ $player->mixed_matches }} confirmed matches</p>
+                <p class="mt-3 whitespace-nowrap text-[clamp(2rem,4.2vw,3.2rem)] font-black leading-none text-brand-blue">{{ $mixedIsRated ? $player->mixed_rating : 'Unrated' }}</p>
+                <p class="mt-2 text-brand-ink/60">{{ $mixedMatches }} confirmed matches</p>
             </div>
         </section>
     </div>

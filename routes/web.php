@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Volt\Volt;
 use Modules\Clubs\Models\Club;
+use Modules\Matches\Models\MatchPlayer;
 use Modules\Matches\Models\MatchRecord;
 use Modules\Matches\Services\MatchScoreService;
 use Modules\Players\Models\PlayerProfile;
@@ -29,6 +30,7 @@ use Modules\Tournaments\DrawEngine\Services\ScheduleGeneratorService;
 use Modules\Tournaments\Models\Tournament;
 use Modules\Tournaments\Models\TournamentCategory;
 use Modules\Tournaments\Models\TournamentEntrant;
+use Modules\Tournaments\Models\TournamentEntrantPlayer;
 use Modules\Tournaments\Services\RoundRobinStandingsService;
 use Modules\Tournaments\Services\TournamentDrawService;
 
@@ -518,9 +520,94 @@ Route::middleware(['auth'])->group(function () {
             $tournament->load(
                 'categories.entrants.players.user.playerProfile',
             );
+            $userIds = $tournament->categories
+                ->flatMap(fn (TournamentCategory $category) => $category->entrants)
+                ->flatMap(fn (TournamentEntrant $entrant) => $entrant->players)
+                ->pluck('user_id')
+                ->filter()
+                ->unique();
+
+            $rankingByUserAndFormat = collect(['singles', 'doubles', 'mixed'])
+                ->mapWithKeys(function (string $format) use ($userIds) {
+                    $ratingColumn = $format.'_rating';
+                    $matchesColumn = $format.'_matches';
+
+                    return [$format => PlayerProfile::whereIn('user_id', $userIds)
+                        ->get()
+                        ->mapWithKeys(function (PlayerProfile $profile) use ($ratingColumn, $matchesColumn) {
+                            $matches = (int) $profile->{$matchesColumn};
+
+                            return [$profile->user_id => [
+                                'rank' => $matches > 0
+                                    ? PlayerProfile::where($matchesColumn, '>', 0)->where($ratingColumn, '>', $profile->{$ratingColumn})->count() + 1
+                                    : null,
+                                'rating' => $profile->{$ratingColumn},
+                                'matches' => $matches,
+                                'points' => (int) $profile->smashr_points,
+                            ]];
+                        })];
+                });
+            $registrationSearch = trim((string) request('search'));
+            $normalizedRegistrationSearch = Str::lower($registrationSearch);
+            $registrationGender = in_array(request('gender'), ['male', 'female'], true) ? request('gender') : '';
+            $registrationCategory = $tournament->categories->pluck('id')->contains((int) request('category')) ? (string) request('category') : '';
+            $hasRegistrationFilters = $registrationSearch !== '' || $registrationGender !== '' || $registrationCategory !== '';
+
+            $registrationCategories = $tournament->categories
+                ->filter(fn (TournamentCategory $category) => $registrationCategory === '' || (string) $category->id === $registrationCategory)
+                ->map(function (TournamentCategory $category) use ($normalizedRegistrationSearch, $registrationGender) {
+                    $entrants = $category->entrants
+                        ->filter(function (TournamentEntrant $entrant) use ($normalizedRegistrationSearch, $registrationGender) {
+                            $matchesGender = $registrationGender === '' || $entrant->players->contains(
+                                fn (TournamentEntrantPlayer $player) => $player->user?->playerProfile?->gender === $registrationGender
+                            );
+
+                            if (! $matchesGender) {
+                                return false;
+                            }
+
+                            if ($normalizedRegistrationSearch === '') {
+                                return true;
+                            }
+
+                            return Str::contains(Str::lower(collect([
+                                $entrant->name,
+                                $entrant->contact_name,
+                                $entrant->contact_phone,
+                                $entrant->identity_number,
+                                $entrant->displayName(),
+                                ...$entrant->players->flatMap(fn (TournamentEntrantPlayer $player) => [
+                                    $player->displayName(),
+                                    $player->display_name,
+                                    $player->school_name,
+                                    $player->user?->name,
+                                    $player->user?->playerProfile?->display_name,
+                                ])->all(),
+                            ])->filter()->join(' ')), $normalizedRegistrationSearch);
+                        })
+                        ->values();
+
+                    return $category->setRelation('entrants', $entrants);
+                })
+                ->filter(fn (TournamentCategory $category) => ! $hasRegistrationFilters || $category->entrants->isNotEmpty())
+                ->values();
+
+            $filteredEntrants = $registrationCategories->flatMap(fn (TournamentCategory $category) => $category->entrants);
+            $filteredPlayerCount = $filteredEntrants
+                ->flatMap(fn (TournamentEntrant $entrant) => $entrant->players)
+                ->unique(fn (TournamentEntrantPlayer $player) => $player->user_id ? 'user:'.$player->user_id : 'guest:'.Str::lower($player->displayName()).'|'.Str::lower((string) $player->school_name))
+                ->count();
 
             return view('organizer.tournaments.registrations', [
                 'tournament' => $tournament,
+                'rankingByUserAndFormat' => $rankingByUserAndFormat,
+                'registrationCategories' => $registrationCategories,
+                'registrationSearch' => $registrationSearch,
+                'registrationGender' => $registrationGender,
+                'registrationCategory' => $registrationCategory,
+                'hasRegistrationFilters' => $hasRegistrationFilters,
+                'filteredEntrantCount' => $filteredEntrants->count(),
+                'filteredPlayerCount' => $filteredPlayerCount,
             ]);
         })->name('registrations');
 
@@ -765,12 +852,64 @@ Route::middleware(['auth'])->group(function () {
                 ->withErrors(['draw' => 'Use the Generate draw button to create matches for '.$category->name.'.']);
         })->name('draws.generate.notice');
 
-        Route::get('{tournament:slug}/matches', fn (Tournament $tournament) => tap(null, function () use ($tournament) {
+        Route::get('{tournament:slug}/matches', function (Tournament $tournament) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
-        }) ?? view('organizer.tournaments.matches', [
-            'tournament' => $tournament->load('categories'),
-            'matches' => $tournament->matches()->with('players.user.playerProfile', 'tournamentCategory')->orderBy('scheduled_at')->orderBy('played_at')->paginate(20),
-        ]))->name('matches');
+
+            $tournament->load('categories');
+            $search = Str::lower(trim((string) request('search')));
+            $matchDates = $tournament->matches()
+                ->whereNotNull('played_at')
+                ->selectRaw('date(played_at) as match_date')
+                ->distinct()
+                ->orderBy('match_date')
+                ->pluck('match_date')
+                ->map(fn ($date) => (string) $date)
+                ->values();
+            $selectedDate = $matchDates->contains(request('date')) ? request('date') : null;
+
+            $matches = $tournament->matches()
+                ->with('players.user.playerProfile', 'tournamentCategory')
+                ->when($selectedDate, fn ($query) => $query->whereDate('played_at', $selectedDate))
+                ->orderBy('played_at')
+                ->orderBy('scheduled_at')
+                ->orderBy('tournament_category_id')
+                ->get()
+                ->filter(function (MatchRecord $match) use ($search, $tournament) {
+                    if ($search === '') {
+                        return true;
+                    }
+
+                    return $match->players->contains(function (MatchPlayer $player) use ($search, $match, $tournament) {
+                        $school = $player->user_id && $match->tournament_category_id
+                            ? TournamentEntrantPlayer::query()
+                                ->where('user_id', $player->user_id)
+                                ->whereHas('entrant', fn ($query) => $query
+                                    ->where('tournament_id', $tournament->id)
+                                    ->where('tournament_category_id', $match->tournament_category_id)
+                                    ->where('status', 'approved'))
+                                ->value('school_name')
+                            : null;
+
+                        $haystack = Str::lower(collect([
+                            $player->user?->playerProfile?->display_name,
+                            $player->user?->name,
+                            $school,
+                        ])->filter()->join(' '));
+
+                        return str_contains($haystack, $search);
+                    });
+                })
+                ->values();
+
+            return view('organizer.tournaments.matches', [
+                'tournament' => $tournament,
+                'matches' => $matches,
+                'groupedMatches' => $matches->groupBy(fn (MatchRecord $match) => $match->played_at?->toDateString() ?? 'unscheduled'),
+                'matchDates' => $matchDates,
+                'selectedDate' => $selectedDate,
+                'search' => $search,
+            ]);
+        })->name('matches');
 
         Route::patch('{tournament:slug}/matches/{match}/result', function (Tournament $tournament, MatchRecord $match, RatingService $ratings, MatchScoreService $scores) {
             abort_unless($tournament->organizer_id === auth()->id() || auth()->user()->hasRole('superadmin'), 403);
